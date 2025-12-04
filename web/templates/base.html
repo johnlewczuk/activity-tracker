@@ -6,6 +6,46 @@
     <title>{% block title %}Activity Tracker{% endblock %}</title>
     {% block extra_head %}{% endblock %}
     <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface-2: #21262d;
+            --surface-hover: #30363d;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --accent-soft: #79c0ff;
+            --accent-strong: #1f6feb;
+            --text-inverse: #ffffff;
+            --accent-rgb: 88, 166, 255;
+            --shadow-accent: rgba(88, 166, 255, 0.2);
+            --floating-surface: rgba(33, 38, 45, 0.9);
+            --modal-overlay: rgba(0, 0, 0, 0.85);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                color-scheme: light;
+                --bg: #f6f8fa;
+                --surface: #ffffff;
+                --surface-2: #eef1f5;
+                --surface-hover: #d8e0ea;
+                --border: #d0d7de;
+                --text: #1f2328;
+                --muted: #57606a;
+                --accent: #0969da;
+                --accent-soft: #218bff;
+                --accent-strong: #0550ae;
+                --text-inverse: #ffffff;
+                --accent-rgb: 9, 105, 218;
+                --shadow-accent: rgba(9, 105, 218, 0.18);
+                --floating-surface: rgba(255, 255, 255, 0.95);
+                --modal-overlay: rgba(0, 0, 0, 0.6);
+            }
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -14,15 +54,15 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #0d1117;
-            color: #c9d1d9;
+            background: var(--bg);
+            color: var(--text);
             line-height: 1.6;
         }
 
         /* Navigation Header */
         .main-header {
-            background: #161b22;
-            border-bottom: 1px solid #30363d;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
             padding: 0;
             position: sticky;
             top: 0;
@@ -51,13 +91,13 @@
             align-items: center;
             gap: 10px;
             text-decoration: none;
-            color: #c9d1d9;
+            color: var(--text);
             font-size: 1.2rem;
             font-weight: 600;
         }
 
         .logo:hover {
-            color: #58a6ff;
+            color: var(--accent);
         }
 
         .logo-icon {
@@ -73,7 +113,7 @@
         .main-nav a {
             display: block;
             padding: 8px 16px;
-            color: #8b949e;
+            color: var(--muted);
             text-decoration: none;
             border-radius: 6px;
             transition: all 0.2s;
@@ -81,13 +121,13 @@
         }
 
         .main-nav a:hover {
-            background: #21262d;
-            color: #c9d1d9;
+            background: var(--surface-2);
+            color: var(--text);
         }
 
         .main-nav a.active {
-            background: #58a6ff;
-            color: #ffffff;
+            background: var(--accent);
+            color: var(--text-inverse);
         }
 
         .header-stats {
@@ -95,7 +135,7 @@
             align-items: center;
             gap: 20px;
             font-size: 0.85rem;
-            color: #8b949e;
+            color: var(--muted);
         }
 
         .stat-item {
@@ -105,14 +145,14 @@
         }
 
         .stat-value {
-            color: #58a6ff;
+            color: var(--accent);
             font-weight: 600;
         }
 
         .help-btn {
-            background: #21262d;
-            color: #8b949e;
-            border: 1px solid #30363d;
+            background: var(--surface-2);
+            color: var(--muted);
+            border: 1px solid var(--border);
             padding: 6px 12px;
             border-radius: 6px;
             cursor: pointer;
@@ -121,9 +161,9 @@
         }
 
         .help-btn:hover {
-            background: #30363d;
-            border-color: #58a6ff;
-            color: #c9d1d9;
+            background: var(--border);
+            border-color: var(--accent);
+            color: var(--text);
         }
 
         /* Keyboard Shortcuts Modal */
@@ -135,7 +175,7 @@
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: var(--modal-overlay);
         }
 
         .modal.active {
@@ -145,8 +185,8 @@
         }
 
         .modal-content {
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 8px;
             padding: 30px;
             max-width: 500px;
@@ -161,18 +201,18 @@
             align-items: center;
             margin-bottom: 20px;
             padding-bottom: 15px;
-            border-bottom: 1px solid #30363d;
+            border-bottom: 1px solid var(--border);
         }
 
         .modal-header h2 {
-            color: #58a6ff;
+            color: var(--accent);
             font-size: 1.3rem;
         }
 
         .modal-close {
             background: none;
             border: none;
-            color: #8b949e;
+            color: var(--muted);
             font-size: 1.5rem;
             cursor: pointer;
             padding: 0;
@@ -186,8 +226,8 @@
         }
 
         .modal-close:hover {
-            background: #21262d;
-            color: #c9d1d9;
+            background: var(--surface-2);
+            color: var(--text);
         }
 
         .shortcuts-list {
@@ -199,7 +239,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px 0;
-            border-bottom: 1px solid #21262d;
+            border-bottom: 1px solid var(--surface-2);
         }
 
         .shortcut-item:last-child {
@@ -207,18 +247,18 @@
         }
 
         .shortcut-desc {
-            color: #c9d1d9;
+            color: var(--text);
             font-size: 0.9rem;
         }
 
         .shortcut-key {
-            background: #21262d;
-            border: 1px solid #30363d;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
             padding: 4px 10px;
             border-radius: 4px;
             font-family: monospace;
             font-size: 0.85rem;
-            color: #58a6ff;
+            color: var(--accent);
             min-width: 30px;
             text-align: center;
         }

@@ -6,6 +6,56 @@
     <title>Activity Timeline - Activity Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface-2: #21262d;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --accent-strong: #1f6feb;
+            --accent-soft: #79c0ff;
+            --danger: #f85149;
+            --intensity-0: var(--surface-2);
+            --intensity-1: #0e4429;
+            --intensity-2: #006d32;
+            --intensity-3: #26a641;
+            --intensity-4: #39d353;
+            --text-inverse: #ffffff;
+            --accent-rgb: 88, 166, 255;
+            --shadow-accent: rgba(88, 166, 255, 0.2);
+            --modal-overlay: rgba(0, 0, 0, 0.95);
+            --floating-surface: rgba(33, 38, 45, 0.9);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                color-scheme: light;
+                --bg: #f6f8fa;
+                --surface: #ffffff;
+                --surface-2: #eef1f5;
+                --border: #d0d7de;
+                --text: #1f2328;
+                --muted: #57606a;
+                --accent: #0969da;
+                --accent-strong: #0550ae;
+                --accent-soft: #218bff;
+                --danger: #cf222e;
+                --intensity-0: #e7edf3;
+                --intensity-1: #9be9a8;
+                --intensity-2: #40c463;
+                --intensity-3: #30a14e;
+                --intensity-4: #216e39;
+                --text-inverse: #ffffff;
+                --accent-rgb: 9, 105, 218;
+                --shadow-accent: rgba(9, 105, 218, 0.18);
+                --modal-overlay: rgba(0, 0, 0, 0.7);
+                --floating-surface: rgba(255, 255, 255, 0.95);
+            }
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -14,8 +64,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #0d1117;
-            color: #c9d1d9;
+            background: var(--bg);
+            color: var(--text);
             line-height: 1.6;
         }
 
@@ -32,7 +82,7 @@
         h1 {
             font-size: 2rem;
             font-weight: 600;
-            color: #58a6ff;
+            color: var(--accent);
             margin-bottom: 10px;
         }
 
@@ -43,7 +93,7 @@
         }
 
         .nav-links a {
-            color: #58a6ff;
+            color: var(--accent);
             text-decoration: none;
             font-size: 0.9rem;
         }
@@ -60,15 +110,15 @@
             gap: 20px;
             margin-bottom: 30px;
             padding: 15px;
-            background: #161b22;
+            background: var(--surface);
             border-radius: 8px;
-            border: 1px solid #30363d;
+            border: 1px solid var(--border);
         }
 
         .month-selector button {
-            background: #21262d;
-            color: #c9d1d9;
-            border: 1px solid #30363d;
+            background: var(--surface-2);
+            color: var(--text);
+            border: 1px solid var(--border);
             padding: 8px 16px;
             border-radius: 6px;
             cursor: pointer;
@@ -77,8 +127,8 @@
         }
 
         .month-selector button:hover {
-            background: #30363d;
-            border-color: #58a6ff;
+            background: var(--border);
+            border-color: var(--accent);
         }
 
         .month-selector button:disabled {
@@ -103,8 +153,8 @@
 
         /* Calendar heatmap */
         .calendar-panel {
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 8px;
             padding: 20px;
         }
@@ -112,7 +162,7 @@
         .calendar-panel h2 {
             font-size: 1.2rem;
             margin-bottom: 15px;
-            color: #58a6ff;
+            color: var(--accent);
         }
 
         .calendar-weekdays {
@@ -126,7 +176,7 @@
             text-align: center;
             font-size: 0.75rem;
             font-weight: 600;
-            color: #8b949e;
+            color: var(--muted);
             padding: 4px;
         }
 
@@ -138,8 +188,8 @@
 
         .calendar-day {
             aspect-ratio: 1;
-            background: #21262d;
-            border: 1px solid #30363d;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
             border-radius: 4px;
             display: flex;
             align-items: center;
@@ -151,7 +201,7 @@
         }
 
         .calendar-day:hover {
-            border-color: #58a6ff;
+            border-color: var(--accent);
             transform: scale(1.05);
         }
 
@@ -166,20 +216,20 @@
         }
 
         .calendar-day.selected {
-            border: 2px solid #58a6ff;
-            box-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.3);
         }
 
         .calendar-day.today {
-            border: 2px solid #f85149;
+            border: 2px solid var(--danger);
         }
 
         /* Activity intensity colors */
-        .calendar-day[data-intensity="0"] { background: #21262d; }
-        .calendar-day[data-intensity="1"] { background: #0e4429; }
-        .calendar-day[data-intensity="2"] { background: #006d32; }
-        .calendar-day[data-intensity="3"] { background: #26a641; }
-        .calendar-day[data-intensity="4"] { background: #39d353; }
+        .calendar-day[data-intensity="0"] { background: var(--intensity-0); }
+        .calendar-day[data-intensity="1"] { background: var(--intensity-1); }
+        .calendar-day[data-intensity="2"] { background: var(--intensity-2); }
+        .calendar-day[data-intensity="3"] { background: var(--intensity-3); }
+        .calendar-day[data-intensity="4"] { background: var(--intensity-4); }
 
         .calendar-legend {
             display: flex;
@@ -187,20 +237,20 @@
             gap: 8px;
             margin-top: 15px;
             font-size: 0.75rem;
-            color: #8b949e;
+            color: var(--muted);
         }
 
         .legend-item {
             width: 12px;
             height: 12px;
             border-radius: 2px;
-            border: 1px solid #30363d;
+            border: 1px solid var(--border);
         }
 
         /* Detail panel */
         .detail-panel {
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 8px;
             padding: 20px;
             min-width: 0;
@@ -213,7 +263,7 @@
 
         .detail-header h2 {
             font-size: 1.2rem;
-            color: #58a6ff;
+            color: var(--accent);
             margin-bottom: 8px;
         }
 
@@ -222,7 +272,7 @@
             gap: 20px;
             flex-wrap: wrap;
             font-size: 0.9rem;
-            color: #8b949e;
+            color: var(--muted);
         }
 
         .stat-item {
@@ -232,7 +282,7 @@
         }
 
         .stat-value {
-            color: #c9d1d9;
+            color: var(--text);
             font-weight: 600;
         }
 
@@ -245,7 +295,7 @@
         .empty-state {
             text-align: center;
             padding: 60px 20px;
-            color: #8b949e;
+            color: var(--muted);
         }
 
         .empty-state-icon {
@@ -258,21 +308,21 @@
         .hour-groups {
             margin-top: 30px;
             padding-top: 20px;
-            border-top: 1px solid #30363d;
+            border-top: 1px solid var(--border);
         }
 
         .hour-group {
             margin-bottom: 20px;
-            background: #0d1117;
-            border: 1px solid #30363d;
+            background: var(--bg);
+            border: 1px solid var(--border);
             border-radius: 8px;
             overflow: hidden;
         }
 
         .hour-header {
             padding: 15px 20px;
-            background: #161b22;
-            border-bottom: 1px solid #30363d;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
             cursor: pointer;
             display: flex;
             justify-content: space-between;
@@ -282,22 +332,22 @@
         }
 
         .hour-header:hover {
-            background: #21262d;
+            background: var(--surface-2);
         }
 
         .hour-title {
             font-size: 1rem;
             font-weight: 600;
-            color: #58a6ff;
+            color: var(--accent);
         }
 
         .hour-count {
             font-size: 0.85rem;
-            color: #8b949e;
+            color: var(--muted);
         }
 
         .hour-toggle {
-            color: #8b949e;
+            color: var(--muted);
             font-size: 1.1rem;
             transition: transform 0.2s;
         }
@@ -318,17 +368,17 @@
         }
 
         .screenshot-card {
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 6px;
             overflow: hidden;
             transition: all 0.2s;
         }
 
         .screenshot-card:hover {
-            border-color: #58a6ff;
+            border-color: var(--accent);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.2);
+            box-shadow: 0 4px 12px var(--shadow-accent);
         }
 
         .screenshot-img {
@@ -346,23 +396,23 @@
         .screenshot-time {
             font-size: 0.85rem;
             font-weight: 600;
-            color: #58a6ff;
+            color: var(--accent);
             margin-bottom: 4px;
         }
 
         .screenshot-app {
             font-size: 0.8rem;
-            color: #8b949e;
+            color: var(--muted);
         }
 
         .app-badge {
             display: inline-block;
             padding: 2px 6px;
-            background: #21262d;
-            border: 1px solid #30363d;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
             border-radius: 3px;
             font-size: 0.7rem;
-            color: #c9d1d9;
+            color: var(--text);
         }
 
         /* Image modal */
@@ -374,7 +424,7 @@
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.95);
+            background-color: var(--modal-overlay);
         }
 
         .modal.active {
@@ -404,7 +454,7 @@
             position: absolute;
             top: 20px;
             right: 30px;
-            color: #c9d1d9;
+            color: var(--text);
             font-size: 3rem;
             cursor: pointer;
             z-index: 2001;
@@ -413,17 +463,17 @@
         }
 
         .modal-close:hover {
-            color: #58a6ff;
+            color: var(--accent);
         }
 
         .modal-nav {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            background: rgba(33, 38, 45, 0.9);
-            border: 1px solid #30363d;
+            background: var(--floating-surface);
+            border: 1px solid var(--border);
             border-radius: 6px;
-            color: #c9d1d9;
+            color: var(--text);
             font-size: 2rem;
             width: 50px;
             height: 50px;
@@ -437,9 +487,9 @@
         }
 
         .modal-nav:hover {
-            background: rgba(88, 166, 255, 0.9);
-            border-color: #58a6ff;
-            color: #ffffff;
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--text-inverse);
         }
 
         .modal-nav.disabled {
@@ -448,9 +498,9 @@
         }
 
         .modal-nav.disabled:hover {
-            background: rgba(33, 38, 45, 0.9);
-            border-color: #30363d;
-            color: #c9d1d9;
+            background: var(--floating-surface);
+            border-color: var(--border);
+            color: var(--text);
         }
 
         .modal-nav-prev {
@@ -464,8 +514,8 @@
         .modal-info {
             margin-top: 20px;
             padding: 15px 25px;
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 8px;
             max-width: 800px;
             width: 90%;
@@ -487,37 +537,37 @@
 
         .modal-meta-label {
             font-size: 0.75rem;
-            color: #8b949e;
+            color: var(--muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .modal-meta-value {
             font-size: 0.95rem;
-            color: #c9d1d9;
+            color: var(--text);
             font-weight: 500;
         }
 
         .modal-counter {
             font-size: 0.9rem;
-            color: #58a6ff;
+            color: var(--accent);
             font-weight: 600;
         }
 
         .modal-shortcuts {
             margin-top: 10px;
             padding-top: 10px;
-            border-top: 1px solid #30363d;
+            border-top: 1px solid var(--border);
             text-align: center;
             font-size: 0.8rem;
-            color: #8b949e;
+            color: var(--muted);
         }
 
         .shortcut-key {
             display: inline-block;
             padding: 2px 6px;
-            background: #21262d;
-            border: 1px solid #30363d;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
             border-radius: 3px;
             font-family: monospace;
             font-size: 0.85rem;
@@ -528,15 +578,15 @@
         .loading {
             text-align: center;
             padding: 40px;
-            color: #8b949e;
+            color: var(--muted);
         }
 
         .spinner {
             display: inline-block;
             width: 40px;
             height: 40px;
-            border: 4px solid #30363d;
-            border-top-color: #58a6ff;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -550,22 +600,22 @@
             position: fixed;
             bottom: 20px;
             right: 20px;
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--surface);
+            border: 1px solid var(--border);
             padding: 10px 15px;
             border-radius: 6px;
             font-size: 0.75rem;
-            color: #8b949e;
+            color: var(--muted);
             opacity: 0.7;
         }
 
         .keyboard-hint kbd {
-            background: #21262d;
-            border: 1px solid #30363d;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
             padding: 2px 6px;
             border-radius: 3px;
             font-family: monospace;
-            color: #c9d1d9;
+            color: var(--text);
         }
 
         /* Responsive */
@@ -700,11 +750,11 @@
                 </div>
                 <div class="calendar-legend">
                     <span>Less</span>
-                    <div class="legend-item" style="background: #21262d;"></div>
-                    <div class="legend-item" style="background: #0e4429;"></div>
-                    <div class="legend-item" style="background: #006d32;"></div>
-                    <div class="legend-item" style="background: #26a641;"></div>
-                    <div class="legend-item" style="background: #39d353;"></div>
+                    <div class="legend-item" style="background: var(--intensity-0);"></div>
+                    <div class="legend-item" style="background: var(--intensity-1);"></div>
+                    <div class="legend-item" style="background: var(--intensity-2);"></div>
+                    <div class="legend-item" style="background: var(--intensity-3);"></div>
+                    <div class="legend-item" style="background: var(--intensity-4);"></div>
                     <span>More</span>
                 </div>
             </div>
@@ -767,6 +817,42 @@
     </div>
 
     <script>
+        function getThemeColors() {
+            const styles = getComputedStyle(document.documentElement);
+            const read = (name) => styles.getPropertyValue(name).trim();
+            return {
+                accent: read('--accent'),
+                accentStrong: read('--accent-strong'),
+                accentSoft: read('--accent-soft'),
+                border: read('--border'),
+                muted: read('--muted'),
+                surface: read('--surface'),
+                text: read('--text')
+            };
+        }
+
+        function applyTimelineChartTheme() {
+            if (!state.chart) return;
+            const theme = getThemeColors();
+            const dataset = state.chart.data.datasets[0];
+            dataset.backgroundColor = theme.accent;
+            dataset.borderColor = theme.accentStrong;
+            dataset.hoverBackgroundColor = theme.accentSoft;
+
+            state.chart.options.scales.y.ticks.color = theme.muted;
+            state.chart.options.scales.y.grid.color = theme.border;
+            state.chart.options.scales.x.ticks.color = theme.muted;
+            state.chart.options.scales.x.grid.color = theme.border;
+
+            const tooltip = state.chart.options.plugins.tooltip;
+            tooltip.backgroundColor = theme.surface;
+            tooltip.borderColor = theme.border;
+            tooltip.titleColor = theme.text;
+            tooltip.bodyColor = theme.text;
+
+            state.chart.update();
+        }
+
         // State management
         const state = {
             currentYear: new Date().getFullYear(),
@@ -781,6 +867,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadCalendar();
             setupEventListeners();
+            const themeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+            themeMedia.addEventListener('change', applyTimelineChartTheme);
         });
 
         // Event listeners
@@ -1088,6 +1176,7 @@
             // Prepare data
             const labels = hourlyData.map(h => `${h.hour}:00`);
             const data = hourlyData.map(h => h.screenshot_count);
+            const theme = getThemeColors();
 
             // Create chart
             state.chart = new Chart(ctx, {
@@ -1097,10 +1186,10 @@
                     datasets: [{
                         label: 'Screenshots',
                         data: data,
-                        backgroundColor: '#58a6ff',
-                        borderColor: '#1f6feb',
+                        backgroundColor: theme.accent,
+                        borderColor: theme.accentStrong,
                         borderWidth: 1,
-                        hoverBackgroundColor: '#79c0ff',
+                        hoverBackgroundColor: theme.accentSoft,
                     }]
                 },
                 options: {
@@ -1111,18 +1200,18 @@
                             beginAtZero: true,
                             ticks: {
                                 stepSize: 1,
-                                color: '#8b949e'
+                                color: theme.muted
                             },
                             grid: {
-                                color: '#30363d'
+                                color: theme.border
                             }
                         },
                         x: {
                             ticks: {
-                                color: '#8b949e'
+                                color: theme.muted
                             },
                             grid: {
-                                color: '#30363d'
+                                color: theme.border
                             }
                         }
                     },
@@ -1131,11 +1220,11 @@
                             display: false
                         },
                         tooltip: {
-                            backgroundColor: '#161b22',
-                            borderColor: '#30363d',
+                            backgroundColor: theme.surface,
+                            borderColor: theme.border,
                             borderWidth: 1,
-                            titleColor: '#c9d1d9',
-                            bodyColor: '#c9d1d9',
+                            titleColor: theme.text,
+                            bodyColor: theme.text,
                             callbacks: {
                                 afterBody: function(context) {
                                     const hour = context[0].dataIndex;
