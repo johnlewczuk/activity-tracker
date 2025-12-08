@@ -56,6 +56,7 @@ from .storage import ActivityStorage
 from .app_inference import get_app_name_with_inference
 from .afk import AFKWatcher
 from .sessions import SessionManager
+from .monitors import get_monitors, get_monitor_for_window, get_primary_monitor
 
 
 class ActivityDaemon:
@@ -683,15 +684,59 @@ class ActivityDaemon:
             self.web_thread = threading.Thread(target=self._start_web_server, daemon=True)
             self.web_thread.start()
 
+        # Cache monitors list (refreshed periodically in get_monitors())
+        monitors = None
+
         while self.running:
             try:
-                # Capture screenshot
-                filepath, current_dhash = self.capture.capture_screen()
+                # Get window information first (needed for monitor detection)
+                window_title, app_name = self._get_active_window_info()
+                window_geometry = self._get_focused_window_geometry()
+
+                # Determine which monitor to capture
+                monitors = get_monitors()  # Cached internally with 60s refresh
+                active_monitor = None
+                capture_region = None
+
+                if window_geometry:
+                    # Find monitor containing the focused window
+                    active_monitor = get_monitor_for_window(window_geometry, monitors)
+
+                if active_monitor:
+                    # Capture only the active monitor
+                    capture_region = {
+                        'left': active_monitor.x,
+                        'top': active_monitor.y,
+                        'width': active_monitor.width,
+                        'height': active_monitor.height
+                    }
+
+                    # Adjust window geometry to be relative to monitor
+                    if window_geometry:
+                        window_geometry['x'] -= active_monitor.x
+                        window_geometry['y'] -= active_monitor.y
+
+                    self.log(f"Capturing monitor: {active_monitor.name} ({active_monitor.width}x{active_monitor.height})")
+                else:
+                    # No focused window or couldn't determine monitor - use primary
+                    primary_monitor = get_primary_monitor(monitors)
+                    if primary_monitor:
+                        active_monitor = primary_monitor
+                        capture_region = {
+                            'left': primary_monitor.x,
+                            'top': primary_monitor.y,
+                            'width': primary_monitor.width,
+                            'height': primary_monitor.height
+                        }
+                        self.log(f"No active window, using primary monitor: {primary_monitor.name}")
+
+                # Capture screenshot with monitor region
+                filepath, current_dhash = self.capture.capture_screen(region=capture_region)
                 if not filepath:
                     self.log("Failed to capture screenshot")
                     time.sleep(30)
                     continue
-                
+
                 # Check if we should skip this screenshot
                 if self._should_skip_screenshot(current_dhash):
                     self.log(f"Screenshot too similar to previous (distance < 3), skipping...")
@@ -702,23 +747,20 @@ class ActivityDaemon:
                         self.log(f"Warning: Could not delete duplicate screenshot {filepath}: {e}")
                     time.sleep(30)
                     continue
-                
-                # Get window information
-                window_title, app_name = self._get_active_window_info()
-
-                # Get window geometry for cropping
-                window_geometry = self._get_focused_window_geometry()
 
                 # Infer app_name from window_title if app_name is NULL
                 app_name = get_app_name_with_inference(app_name, window_title)
 
-                # Save to database (with window geometry if available)
+                # Save to database (with window geometry and monitor info)
                 screenshot_id = self.storage.save_screenshot(
                     filepath=filepath,
                     dhash=current_dhash,
                     window_title=window_title,
                     app_name=app_name,
-                    window_geometry=window_geometry
+                    window_geometry=window_geometry,
+                    monitor_name=active_monitor.name if active_monitor else None,
+                    monitor_width=active_monitor.width if active_monitor else None,
+                    monitor_height=active_monitor.height if active_monitor else None
                 )
 
                 # Link to current session if active

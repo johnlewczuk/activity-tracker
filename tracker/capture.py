@@ -111,67 +111,81 @@ class ScreenCapture:
         except PermissionError as e:
             raise ScreenCaptureError(f"Permission denied creating output directory {self.output_dir}: {e}") from e
         
-    def capture_screen(self, filename: Optional[str] = None) -> Tuple[str, str]:
-        """Capture a screenshot of the primary monitor and compute its perceptual hash.
-        
-        This method captures the primary monitor's display, converts it to WebP format
-        with 80% quality compression, and generates a perceptual hash for duplicate
-        detection. The file is automatically saved in a YYYY/MM/DD directory structure.
-        
+    def capture_screen(self, filename: Optional[str] = None, region: Optional[dict] = None) -> Tuple[str, str]:
+        """Capture a screenshot of the primary monitor or specific region and compute its perceptual hash.
+
+        This method captures the display (either primary monitor or specified region),
+        converts it to WebP format with 80% quality compression, and generates a
+        perceptual hash for duplicate detection. The file is automatically saved
+        in a YYYY/MM/DD directory structure.
+
         Args:
             filename (Optional[str]): Custom filename without extension. If None,
                 generates timestamp-based filename: YYYYMMDD_HHMMSS_{hash_prefix}
-                
+            region (Optional[dict]): Specific monitor region to capture with keys:
+                - left (int): X offset from screen origin
+                - top (int): Y offset from screen origin
+                - width (int): Region width in pixels
+                - height (int): Region height in pixels
+                If None, captures primary monitor (default behavior)
+
         Returns:
             Tuple[str, str]: A tuple containing:
                 - filepath (str): Absolute path to the saved screenshot file
                 - dhash_hex (str): 16-character hexadecimal perceptual hash
-                
+
         Raises:
             ScreenCaptureError: If capture fails due to:
                 - X11 display server not available
-                - Monitor access issues  
+                - Monitor access issues
                 - Image processing errors
                 - Filesystem permission problems
-                
+
         Example:
             >>> capture = ScreenCapture()
+            >>> # Capture primary monitor
             >>> filepath, dhash = capture.capture_screen()
             >>> print(f"Saved: {filepath}")
-            >>> print(f"Hash: {dhash}")
-            
-            >>> # Custom filename
-            >>> filepath, dhash = capture.capture_screen("my_screenshot")
-            
+            >>>
+            >>> # Capture specific monitor
+            >>> region = {'left': 3840, 'top': 0, 'width': 1920, 'height': 1080}
+            >>> filepath, dhash = capture.capture_screen(region=region)
+
         Note:
             Screenshots are saved as WebP files with .webp extension automatically added.
-            The primary monitor (monitors[1] in MSS) is used; multi-monitor support
-            is planned for future versions.
         """
         try:
             with mss.mss() as sct:
-                # TODO: Multi-monitor support - currently hardcoded to primary monitor only
-                # Should handle cases where monitors[1] doesn't exist or user wants specific monitor
-                # Get primary monitor
-                if len(sct.monitors) < 2:
-                    raise ScreenCaptureError("No monitors detected")
-                monitor = sct.monitors[1]  # monitors[0] is all monitors combined
-                
+                # Determine monitor/region to capture
+                if region:
+                    # Capture specific region (for multi-monitor support)
+                    monitor = {
+                        'left': region['left'],
+                        'top': region['top'],
+                        'width': region['width'],
+                        'height': region['height']
+                    }
+                else:
+                    # Capture primary monitor (default behavior)
+                    if len(sct.monitors) < 2:
+                        raise ScreenCaptureError("No monitors detected")
+                    monitor = sct.monitors[1]  # monitors[0] is all monitors combined
+
                 # Capture screenshot
                 screenshot = sct.grab(monitor)
-                
+
                 # Convert to PIL Image
                 img = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
-                
+
                 # Generate dhash before saving
                 dhash = self._generate_dhash(img)
-                
+
                 # Create timestamped filepath if no filename provided
                 if filename is None:
                     from datetime import datetime
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"{timestamp}_{dhash[:8]}"
-                
+
                 # Ensure directory structure exists (YYYY/MM/DD)
                 from datetime import datetime
                 now = datetime.now()
@@ -181,7 +195,7 @@ class ScreenCapture:
                     date_dir.mkdir(parents=True, exist_ok=True)
                 except PermissionError as e:
                     raise ScreenCaptureError(f"Permission denied creating date directory {date_dir}: {e}") from e
-                
+
                 # Save as WebP with 80% quality
                 filepath = date_dir / f"{filename}.webp"
                 # TODO: Permission errors - handle case where file save fails due to permissions or disk full
@@ -189,10 +203,10 @@ class ScreenCapture:
                     img.save(filepath, "WEBP", quality=80, method=6)
                 except (PermissionError, OSError) as e:
                     raise ScreenCaptureError(f"Failed to save screenshot to {filepath}: {e}") from e
-                
+
                 logger.info(f"Screenshot saved: {filepath}")
                 return str(filepath), dhash
-                
+
         except OSError as e:
             if "cannot connect to display" in str(e).lower():
                 # TODO: Wayland compatibility - error message assumes X11, should detect display server type

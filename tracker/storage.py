@@ -154,7 +154,10 @@ class ActivityStorage:
                     window_x INTEGER,
                     window_y INTEGER,
                     window_width INTEGER,
-                    window_height INTEGER
+                    window_height INTEGER,
+                    monitor_name TEXT,
+                    monitor_width INTEGER,
+                    monitor_height INTEGER
                 )
             """)
 
@@ -230,6 +233,18 @@ class ActivityStorage:
                 except sqlite3.OperationalError:
                     pass  # Column already exists
 
+            # Add monitor metadata columns to screenshots table if they don't exist
+            try:
+                conn.execute("ALTER TABLE screenshots ADD COLUMN monitor_name TEXT")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+            for col in ['monitor_width', 'monitor_height']:
+                try:
+                    conn.execute(f"ALTER TABLE screenshots ADD COLUMN {col} INTEGER")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_session_start ON activity_sessions(start_time)
             """)
@@ -266,7 +281,9 @@ class ActivityStorage:
             conn.commit()
     
     def save_screenshot(self, filepath: str, dhash: str, window_title: str = None,
-                       app_name: str = None, window_geometry: dict = None) -> int:
+                       app_name: str = None, window_geometry: dict = None,
+                       monitor_name: str = None, monitor_width: int = None,
+                       monitor_height: int = None) -> int:
         """Save screenshot metadata to the database.
 
         Stores screenshot information including file path, perceptual hash, and
@@ -279,6 +296,9 @@ class ActivityStorage:
             window_title (str, optional): Active window title when screenshot taken
             app_name (str, optional): Application class name when screenshot taken
             window_geometry (dict, optional): Window geometry with keys x, y, width, height
+            monitor_name (str, optional): Monitor identifier (e.g., "DP-1", "HDMI-0")
+            monitor_width (int, optional): Monitor width in pixels
+            monitor_height (int, optional): Monitor height in pixels
 
         Returns:
             int: Database ID of the inserted screenshot record
@@ -294,7 +314,8 @@ class ActivityStorage:
             ...     "a1b2c3d4e5f67890",
             ...     "Firefox - Activity Tracker",
             ...     "firefox",
-            ...     {"x": 100, "y": 50, "width": 1920, "height": 1080}
+            ...     {"x": 100, "y": 50, "width": 1920, "height": 1080},
+            ...     "DP-1", 3840, 2160
             ... )
         """
         # TODO: Edge case - handle case where file doesn't exist or permission denied when getting mtime
@@ -314,10 +335,12 @@ class ActivityStorage:
         with self.get_connection() as conn:
             cursor = conn.execute("""
                 INSERT INTO screenshots (timestamp, filepath, dhash, window_title, app_name,
-                                        window_x, window_y, window_width, window_height)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        window_x, window_y, window_width, window_height,
+                                        monitor_name, monitor_width, monitor_height)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (timestamp, filepath, dhash, window_title, app_name,
-                  window_x, window_y, window_width, window_height))
+                  window_x, window_y, window_width, window_height,
+                  monitor_name, monitor_width, monitor_height))
 
             conn.commit()
             return cursor.lastrowid
@@ -356,7 +379,8 @@ class ActivityStorage:
         with self.get_connection() as conn:
             cursor = conn.execute("""
                 SELECT id, timestamp, filepath, dhash, window_title, app_name,
-                       window_x, window_y, window_width, window_height
+                       window_x, window_y, window_width, window_height,
+                       monitor_name, monitor_width, monitor_height
                 FROM screenshots
                 WHERE timestamp BETWEEN ? AND ?
                 ORDER BY timestamp DESC
@@ -391,7 +415,8 @@ class ActivityStorage:
         with self.get_connection() as conn:
             cursor = conn.execute("""
                 SELECT id, timestamp, filepath, dhash, window_title, app_name,
-                       window_x, window_y, window_width, window_height
+                       window_x, window_y, window_width, window_height,
+                       monitor_name, monitor_width, monitor_height
                 FROM screenshots
                 WHERE id = ?
             """, (screenshot_id,))
@@ -984,7 +1009,8 @@ class ActivityStorage:
             cursor = conn.execute(
                 """
                 SELECT s.id, s.timestamp, s.filepath, s.dhash, s.window_title, s.app_name,
-                       s.window_x, s.window_y, s.window_width, s.window_height
+                       s.window_x, s.window_y, s.window_width, s.window_height,
+                       s.monitor_name, s.monitor_width, s.monitor_height
                 FROM screenshots s
                 JOIN session_screenshots ss ON s.id = ss.screenshot_id
                 WHERE ss.session_id = ?

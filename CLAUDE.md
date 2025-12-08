@@ -92,10 +92,19 @@ activity-tracker/
   - Cached as {original}_crop.webp files for performance
   - Handles edge cases: fullscreen apps, partially off-screen windows, missing geometry
   - Multi-monitor support via geometry coordinates
+- Multi-monitor support with intelligent capture
+  - Detects connected monitors using xrandr
+  - Captures only the monitor with the focused window
+  - Stores monitor metadata (name, width, height) in database
+  - Window geometry coordinates relative to captured monitor
+  - Automatic fallback to primary monitor when no focused window
+  - 60-second cache refresh for hotplug support
+  - Handles edge cases: window spanning monitors, xrandr unavailable, monitor hotplug
+  - Significant file size reduction (e.g., 5K instead of dual 10K virtual screen)
 
 ## Known Issues (TODO Comments Added)
-- **Multi-monitor support**: Window cropping now supports multi-monitor setups via geometry coordinates
-- **Wayland compatibility**: Assumes X11, needs display server detection (xdotool requirement)
+- **Multi-monitor support**: ✅ RESOLVED - Captures only active monitor, stores monitor metadata
+- **Wayland compatibility**: Assumes X11, needs display server detection (xdotool + xrandr requirement)
 - **Permission handling**: Missing checks for directory/file access
 - **Configuration**: config.py mentioned but doesn't exist
 - **Error resilience**: Daemon needs better error recovery
