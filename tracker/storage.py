@@ -150,7 +150,11 @@ class ActivityStorage:
                     filepath TEXT NOT NULL,
                     dhash TEXT NOT NULL,
                     window_title TEXT,
-                    app_name TEXT
+                    app_name TEXT,
+                    window_x INTEGER,
+                    window_y INTEGER,
+                    window_width INTEGER,
+                    window_height INTEGER
                 )
             """)
 
@@ -219,6 +223,13 @@ class ActivityStorage:
             except sqlite3.OperationalError:
                 pass  # Column already exists
 
+            # Add window geometry columns to screenshots table if they don't exist
+            for col in ['window_x', 'window_y', 'window_width', 'window_height']:
+                try:
+                    conn.execute(f"ALTER TABLE screenshots ADD COLUMN {col} INTEGER")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_session_start ON activity_sessions(start_time)
             """)
@@ -254,33 +265,36 @@ class ActivityStorage:
 
             conn.commit()
     
-    def save_screenshot(self, filepath: str, dhash: str, window_title: str = None, app_name: str = None) -> int:
+    def save_screenshot(self, filepath: str, dhash: str, window_title: str = None,
+                       app_name: str = None, window_geometry: dict = None) -> int:
         """Save screenshot metadata to the database.
-        
+
         Stores screenshot information including file path, perceptual hash, and
         optional window context. Uses file modification time as timestamp, falling
         back to current time if file access fails.
-        
+
         Args:
             filepath (str): Absolute path to the screenshot file
             dhash (str): Perceptual hash (dhash) as hexadecimal string
             window_title (str, optional): Active window title when screenshot taken
             app_name (str, optional): Application class name when screenshot taken
-            
+            window_geometry (dict, optional): Window geometry with keys x, y, width, height
+
         Returns:
             int: Database ID of the inserted screenshot record
-            
+
         Raises:
             sqlite3.Error: If database insertion fails
             RuntimeError: If database connection fails
-            
+
         Example:
             >>> storage = ActivityStorage()
             >>> screenshot_id = storage.save_screenshot(
             ...     "/path/to/screenshot.webp",
-            ...     "a1b2c3d4e5f67890", 
+            ...     "a1b2c3d4e5f67890",
             ...     "Firefox - Activity Tracker",
-            ...     "firefox"
+            ...     "firefox",
+            ...     {"x": 100, "y": 50, "width": 1920, "height": 1080}
             ... )
         """
         # TODO: Edge case - handle case where file doesn't exist or permission denied when getting mtime
@@ -290,13 +304,21 @@ class ActivityStorage:
             # Fallback to current timestamp if file access fails
             import time
             timestamp = int(time.time())
-        
+
+        # Extract window geometry if provided
+        window_x = window_geometry.get('x') if window_geometry else None
+        window_y = window_geometry.get('y') if window_geometry else None
+        window_width = window_geometry.get('width') if window_geometry else None
+        window_height = window_geometry.get('height') if window_geometry else None
+
         with self.get_connection() as conn:
             cursor = conn.execute("""
-                INSERT INTO screenshots (timestamp, filepath, dhash, window_title, app_name)
-                VALUES (?, ?, ?, ?, ?)
-            """, (timestamp, filepath, dhash, window_title, app_name))
-            
+                INSERT INTO screenshots (timestamp, filepath, dhash, window_title, app_name,
+                                        window_x, window_y, window_width, window_height)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (timestamp, filepath, dhash, window_title, app_name,
+                  window_x, window_y, window_width, window_height))
+
             conn.commit()
             return cursor.lastrowid
     
@@ -333,12 +355,13 @@ class ActivityStorage:
         """
         with self.get_connection() as conn:
             cursor = conn.execute("""
-                SELECT id, timestamp, filepath, dhash, window_title, app_name
+                SELECT id, timestamp, filepath, dhash, window_title, app_name,
+                       window_x, window_y, window_width, window_height
                 FROM screenshots
                 WHERE timestamp BETWEEN ? AND ?
                 ORDER BY timestamp DESC
             """, (start_time, end_time))
-            
+
             return [dict(row) for row in cursor.fetchall()]
     
     def get_screenshot(self, screenshot_id: int) -> Optional[Dict]:
@@ -367,11 +390,12 @@ class ActivityStorage:
         """
         with self.get_connection() as conn:
             cursor = conn.execute("""
-                SELECT id, timestamp, filepath, dhash, window_title, app_name
+                SELECT id, timestamp, filepath, dhash, window_title, app_name,
+                       window_x, window_y, window_width, window_height
                 FROM screenshots
                 WHERE id = ?
             """, (screenshot_id,))
-            
+
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -959,7 +983,8 @@ class ActivityStorage:
         with self.get_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT s.id, s.timestamp, s.filepath, s.dhash, s.window_title, s.app_name
+                SELECT s.id, s.timestamp, s.filepath, s.dhash, s.window_title, s.app_name,
+                       s.window_x, s.window_y, s.window_width, s.window_height
                 FROM screenshots s
                 JOIN session_screenshots ss ON s.id = ss.screenshot_id
                 WHERE ss.session_id = ?

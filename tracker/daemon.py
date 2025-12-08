@@ -247,7 +247,9 @@ class ActivityDaemon:
                 for s in screenshots:
                     if s.get("window_title") == title:
                         try:
-                            ocr_text = summarizer.extract_ocr(s["filepath"])
+                            # Use cropped version for better OCR accuracy
+                            cropped_path = summarizer.get_cropped_path(s)
+                            ocr_text = summarizer.extract_ocr(cropped_path)
                             self.storage.cache_ocr(session_id, title, ocr_text, s["id"])
                             ocr_texts.append({"window_title": title, "ocr_text": ocr_text})
                         except Exception as e:
@@ -404,20 +406,20 @@ class ActivityDaemon:
     
     def _get_active_window_info(self) -> tuple[Optional[str], Optional[str]]:
         """Extract information about the currently active window.
-        
+
         Uses xdotool to query X11 for the focused window's title and class name.
         This provides context about what application the user was using when
         the screenshot was captured.
-        
+
         Returns:
             tuple[Optional[str], Optional[str]]: A tuple containing:
                 - window_title: Title of the active window (or None if unavailable)
                 - app_name: Application class name (or None if unavailable)
-                
+
         Note:
             Requires xdotool to be installed and X11 display server.
             Wayland support is planned for future versions.
-            
+
         Example:
             >>> daemon = ActivityDaemon()
             >>> title, app = daemon._get_active_window_info()
@@ -470,12 +472,82 @@ class ActivityDaemon:
                         app_name = matches[0]  # Fallback to instance if only one value
 
             return window_title, app_name
-            
+
         except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError) as e:
             # TODO: Permission errors - handle case where xdotool fails due to X11 permissions
             # Should check for X11 access permissions and provide helpful error messages
             self.log(f"Failed to get window info: {e}")
             return None, None
+
+    def _get_focused_window_geometry(self) -> Optional[dict]:
+        """Get bounds of focused window using xdotool.
+
+        Extracts the geometry (position and size) of the currently focused window.
+        This is used for cropping screenshots to the active window for improved
+        OCR and LLM accuracy.
+
+        Returns:
+            Optional[dict]: Dictionary with keys:
+                - x (int): X position in pixels
+                - y (int): Y position in pixels
+                - width (int): Window width in pixels
+                - height (int): Window height in pixels
+                Or None if window geometry cannot be determined.
+
+        Note:
+            Requires xdotool to be installed and X11 display server.
+            Falls back to full screenshot if geometry cannot be determined.
+
+        Example:
+            >>> daemon = ActivityDaemon()
+            >>> geo = daemon._get_focused_window_geometry()
+            >>> if geo:
+            ...     print(f"Window at ({geo['x']}, {geo['y']}) size {geo['width']}x{geo['height']}")
+        """
+        try:
+            # Get active window ID
+            result = subprocess.run(
+                ['xdotool', 'getactivewindow'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode != 0:
+                return None
+
+            window_id = result.stdout.strip()
+
+            # Get geometry using --shell option for easy parsing
+            result = subprocess.run(
+                ['xdotool', 'getwindowgeometry', '--shell', window_id],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode != 0:
+                return None
+
+            # Parse output: WINDOW=123\nX=100\nY=200\nWIDTH=1920\nHEIGHT=1080
+            geo = {}
+            for line in result.stdout.strip().split('\n'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    geo[key] = int(value) if value.isdigit() else value
+
+            # Validate we have all required fields
+            if not all(k in geo for k in ['X', 'Y', 'WIDTH', 'HEIGHT']):
+                return None
+
+            return {
+                'x': geo['X'],
+                'y': geo['Y'],
+                'width': geo['WIDTH'],
+                'height': geo['HEIGHT']
+            }
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError, ValueError) as e:
+            self.log(f"Failed to get window geometry: {e}")
+            return None
     
     def _hamming_distance(self, hash1: str, hash2: str) -> int:
         """Calculate Hamming distance between two perceptual hashes.
@@ -634,15 +706,19 @@ class ActivityDaemon:
                 # Get window information
                 window_title, app_name = self._get_active_window_info()
 
+                # Get window geometry for cropping
+                window_geometry = self._get_focused_window_geometry()
+
                 # Infer app_name from window_title if app_name is NULL
                 app_name = get_app_name_with_inference(app_name, window_title)
 
-                # Save to database
+                # Save to database (with window geometry if available)
                 screenshot_id = self.storage.save_screenshot(
                     filepath=filepath,
                     dhash=current_dhash,
                     window_title=window_title,
-                    app_name=app_name
+                    app_name=app_name,
+                    window_geometry=window_geometry
                 )
 
                 # Link to current session if active

@@ -85,10 +85,17 @@ activity-tracker/
 - Info icons added throughout UI with tooltips
 - Live counts for ongoing sessions (calculated from session_screenshots)
 - Generate button shows loading feedback immediately
+- Window geometry detection and cropping for improved OCR/LLM accuracy
+  - Captures focused window bounds using xdotool
+  - Stores window geometry (x, y, width, height) in database
+  - Creates cropped screenshots on-demand for OCR and summarization
+  - Cached as {original}_crop.webp files for performance
+  - Handles edge cases: fullscreen apps, partially off-screen windows, missing geometry
+  - Multi-monitor support via geometry coordinates
 
 ## Known Issues (TODO Comments Added)
-- **Multi-monitor support**: Currently hardcoded to primary monitor
-- **Wayland compatibility**: Assumes X11, needs display server detection  
+- **Multi-monitor support**: Window cropping now supports multi-monitor setups via geometry coordinates
+- **Wayland compatibility**: Assumes X11, needs display server detection (xdotool requirement)
 - **Permission handling**: Missing checks for directory/file access
 - **Configuration**: config.py mentioned but doesn't exist
 - **Error resilience**: Daemon needs better error recovery

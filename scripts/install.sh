@@ -20,6 +20,18 @@ SERVICE_FILE="$SYSTEMD_DIR/activity-tracker.service"
 
 echo -e "${GREEN}Installing Activity Tracker...${NC}"
 
+# Check for required dependencies
+echo "Checking required dependencies..."
+
+if which xdotool > /dev/null 2>&1; then
+    echo -e "  ${GREEN}✓${NC} xdotool found (required for window detection and cropping)"
+else
+    echo -e "  ${RED}✗${NC} xdotool not found - Install: sudo apt install xdotool"
+    echo -e "      ${YELLOW}Required for window geometry detection and screenshot cropping${NC}"
+fi
+
+echo
+
 # Check for optional dependencies (summarization features)
 echo "Checking optional dependencies for AI summarization..."
 

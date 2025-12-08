@@ -260,11 +260,13 @@ class HybridSummarizer:
         # Extract IDs of screenshots actually used
         screenshot_ids_used = [s["id"] for s in sampled]
 
-        # Prepare images for LLM
+        # Prepare images for LLM (use cropped versions for better focus)
         images_base64 = []
         for s in sampled:
             try:
-                img_b64 = self._prepare_image(s["filepath"])
+                # Get cropped version (falls back to full if no geometry)
+                img_path = self._get_cropped_screenshot(s)
+                img_b64 = self._prepare_image(img_path)
                 images_base64.append(img_b64)
             except Exception as e:
                 logger.warning(f"Failed to prepare image {s['filepath']}: {e}")
@@ -375,6 +377,18 @@ class HybridSummarizer:
         """
         return self._extract_ocr(image_path)
 
+    def get_cropped_path(self, screenshot: dict) -> str:
+        """
+        Public wrapper to get cropped screenshot path.
+
+        Args:
+            screenshot: Screenshot dict with filepath and optional geometry.
+
+        Returns:
+            Path to cropped screenshot (or original if no geometry).
+        """
+        return self._get_cropped_screenshot(screenshot)
+
     def _extract_ocr(self, image_path: str) -> str:
         """
         Extract text from an image using Tesseract OCR.
@@ -436,6 +450,75 @@ class HybridSummarizer:
         except Exception as e:
             logger.warning(f"OCR extraction failed: {e}")
             return ""
+
+    def _get_cropped_screenshot(self, screenshot: dict) -> str:
+        """
+        Return path to cropped version of screenshot (cached).
+
+        Creates a cropped version focused on the active window for improved
+        OCR and LLM accuracy. Falls back to full screenshot if no geometry data.
+
+        Args:
+            screenshot: Screenshot dict with filepath and optional window_x/y/width/height.
+
+        Returns:
+            Path to cropped screenshot (or original if no geometry or crop already exists).
+
+        Note:
+            Cropped images are cached as {original}_crop.webp files.
+            Edge cases handled:
+            - No geometry data: returns full screenshot
+            - Fullscreen apps: crop matches original
+            - Window partially off-screen: clamped to valid range
+        """
+        filepath = screenshot['filepath']
+
+        # Check if we have window geometry
+        if not all([screenshot.get('window_x') is not None,
+                   screenshot.get('window_y') is not None,
+                   screenshot.get('window_width'),
+                   screenshot.get('window_height')]):
+            # No geometry data, use full screenshot
+            return filepath
+
+        # Check cache - cropped version should be next to original
+        crop_path = filepath.replace('.webp', '_crop.webp')
+        if Path(crop_path).exists():
+            return crop_path
+
+        try:
+            # Load full screenshot and crop to window
+            with Image.open(filepath) as img:
+                # Get geometry
+                x = screenshot['window_x']
+                y = screenshot['window_y']
+                w = screenshot['window_width']
+                h = screenshot['window_height']
+
+                # Clamp coordinates to image bounds (handle partially off-screen windows)
+                x = max(0, min(x, img.width))
+                y = max(0, min(y, img.height))
+                x2 = max(0, min(x + w, img.width))
+                y2 = max(0, min(y + h, img.height))
+
+                # Check if crop would be different from original (handle fullscreen)
+                if x == 0 and y == 0 and x2 == img.width and y2 == img.height:
+                    # Fullscreen or same size, return original
+                    return filepath
+
+                # Crop to window bounds
+                cropped = img.crop((x, y, x2, y2))
+
+                # Save cropped version
+                cropped.save(crop_path, 'WEBP', quality=85)
+                logger.debug(f"Created cropped screenshot: {crop_path}")
+
+                return crop_path
+
+        except Exception as e:
+            logger.warning(f"Failed to crop screenshot {filepath}: {e}")
+            # Fall back to full screenshot
+            return filepath
 
     def _prepare_image(self, path: str) -> str:
         """
