@@ -789,7 +789,9 @@ def _run_session_summarization(session_id: int):
             for s in screenshots:
                 if s.get("window_title") == title:
                     try:
-                        ocr_text = summarizer.extract_ocr(s["filepath"])
+                        # Use cropped version for better OCR accuracy
+                        cropped_path = summarizer.get_cropped_path(s)
+                        ocr_text = summarizer.extract_ocr(cropped_path)
                         storage.cache_ocr(session_id, title, ocr_text, s["id"])
                         ocr_texts.append({"window_title": title, "ocr_text": ocr_text})
                     except Exception:
@@ -848,7 +850,7 @@ def api_summarize_session(session_id):
             return jsonify({"error": "Session not found"}), 404
 
         # Check if already summarized
-        if session.get("summary") and not request.json.get("force"):
+        if session.get("summary") and not (request.json or {}).get("force"):
             return jsonify({
                 "status": "already_summarized",
                 "summary": session["summary"],
