@@ -1431,3 +1431,99 @@ class ActivityStorage:
             )
             row = cursor.fetchone()
             return dict(row) if row else None
+
+    # =========================================================================
+    # Report Generation Methods
+    # =========================================================================
+
+    def get_summaries_in_range(self, start: 'datetime', end: 'datetime') -> List[Dict]:
+        """Get threshold summaries within a datetime range.
+
+        Args:
+            start: Start datetime (inclusive).
+            end: End datetime (inclusive).
+
+        Returns:
+            List of summary dicts ordered by start_time.
+        """
+        from datetime import datetime as dt
+
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT id, start_time, end_time, summary, screenshot_ids,
+                       screenshot_count, model_used, config_snapshot,
+                       inference_time_ms, created_at, regenerated_from
+                FROM threshold_summaries
+                WHERE datetime(start_time) >= datetime(?)
+                  AND datetime(end_time) <= datetime(?)
+                ORDER BY start_time ASC
+                """,
+                (start.isoformat(), end.isoformat()),
+            )
+            results = []
+            for row in cursor.fetchall():
+                result = dict(row)
+                result['screenshot_ids'] = json.loads(result['screenshot_ids'])
+                if result['config_snapshot']:
+                    result['config_snapshot'] = json.loads(result['config_snapshot'])
+                results.append(result)
+            return results
+
+    def get_screenshots_in_range(self, start: 'datetime', end: 'datetime') -> List[Dict]:
+        """Get screenshots within a datetime range.
+
+        Args:
+            start: Start datetime (inclusive).
+            end: End datetime (inclusive).
+
+        Returns:
+            List of screenshot dicts ordered by timestamp.
+        """
+        start_ts = int(start.timestamp())
+        end_ts = int(end.timestamp())
+
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT id, timestamp, filepath, dhash, window_title, app_name,
+                       window_x, window_y, window_width, window_height,
+                       monitor_name, monitor_width, monitor_height
+                FROM screenshots
+                WHERE timestamp BETWEEN ? AND ?
+                ORDER BY timestamp ASC
+                """,
+                (start_ts, end_ts),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_sessions_in_range(self, start: 'datetime', end: 'datetime') -> List[Dict]:
+        """Get activity sessions within a datetime range.
+
+        Args:
+            start: Start datetime (inclusive).
+            end: End datetime (inclusive).
+
+        Returns:
+            List of session dicts ordered by start_time.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT id, start_time, end_time, duration_seconds, summary,
+                       screenshot_count, unique_windows, model_used, inference_time_ms,
+                       prompt_text, screenshot_ids_used
+                FROM activity_sessions
+                WHERE datetime(start_time) >= datetime(?)
+                  AND (end_time IS NULL OR datetime(end_time) <= datetime(?))
+                ORDER BY start_time ASC
+                """,
+                (start.isoformat(), end.isoformat()),
+            )
+            results = []
+            for row in cursor.fetchall():
+                result = dict(row)
+                if result.get("screenshot_ids_used"):
+                    result["screenshot_ids_used"] = json.loads(result["screenshot_ids_used"])
+                results.append(result)
+            return results

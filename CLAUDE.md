@@ -46,12 +46,16 @@ activity-tracker/
 │   ├── vision.py            # AI summarization (OCR + LLM)
 │   ├── summarizer_worker.py # Background worker for threshold-based summarization
 │   ├── afk.py               # AFK detection via pynput
-│   └── sessions.py          # Session management
+│   ├── sessions.py          # Session management
+│   ├── timeparser.py        # Natural language time range parser
+│   ├── reports.py           # Report generator with analytics
+│   └── report_export.py     # Export reports to Markdown/HTML/PDF/JSON
 ├── web/
 │   ├── app.py               # Flask application with REST API
 │   └── templates/
 │       ├── timeline.html    # Timeline view with AI summaries
 │       ├── analytics.html   # Analytics dashboard
+│       ├── reports.html     # Report generation UI
 │       └── settings.html    # Configuration UI
 ├── tests/                   # Pytest test suite
 │   ├── conftest.py          # Test fixtures
@@ -117,6 +121,25 @@ activity-tracker/
 - Settings page loads Ollama models dynamically from API
 - Model changes take effect immediately (no daemon restart needed)
 - Install script now auto-enables web server and summarization (no prompts)
+
+### 2025-12-09 - Phase 4: Report Generation
+- Natural language time range parser (timeparser.py)
+  - Supports: "today", "yesterday", "last week", "this month", "past 3 days", etc.
+  - Weekday names: "monday", "last friday"
+  - Date ranges: "2025-12-01 to 2025-12-07"
+- Report generator (reports.py) with three report types:
+  - Summary: High-level executive summary with analytics
+  - Detailed: Day-by-day breakdown
+  - Standup: Brief bullet points for standup meetings
+- Analytics computation: app usage, window usage, activity by hour/day
+- Export functionality (report_export.py):
+  - Markdown with screenshot references
+  - Standalone HTML with embedded images
+  - PDF via weasyprint (optional)
+  - JSON for programmatic access
+- Reports page UI with quick presets and custom time ranges
+- API endpoints: /api/reports/generate, /api/reports/export, /api/reports/presets
+- Reports stored in ~/activity-tracker-data/reports/
 
 ## Known Issues (TODO Comments Added)
 - **Multi-monitor support**: ✅ RESOLVED - Captures only active monitor, stores monitor metadata

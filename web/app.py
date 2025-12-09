@@ -1334,5 +1334,223 @@ def api_get_worker_status():
     return jsonify(summarizer_worker.get_status())
 
 
+# ==================== Report Generation API ====================
+
+# Global report generator and exporter (lazy initialized)
+_report_generator = None
+_report_exporter = None
+
+
+def get_report_generator():
+    """Get or create the report generator instance."""
+    global _report_generator
+    if _report_generator is None:
+        from tracker.reports import ReportGenerator
+        storage = ActivityStorage()
+        try:
+            summarizer = HybridSummarizer()
+        except Exception:
+            summarizer = None
+        _report_generator = ReportGenerator(storage, summarizer, config_manager)
+    return _report_generator
+
+
+def get_report_exporter():
+    """Get or create the report exporter instance."""
+    global _report_exporter
+    if _report_exporter is None:
+        from tracker.report_export import ReportExporter
+        _report_exporter = ReportExporter()
+    return _report_exporter
+
+
+@app.route('/reports')
+def reports_page():
+    """Render the reports page."""
+    today = date.today()
+    return render_template('reports.html',
+                         today=today.strftime('%Y-%m-%d'),
+                         page='reports')
+
+
+@app.route('/api/reports/generate', methods=['POST'])
+def api_generate_report():
+    """Generate a report for a time range.
+
+    Request body:
+        {
+            "time_range": "last week",
+            "report_type": "summary",  // summary, detailed, standup
+            "include_screenshots": true,
+            "max_screenshots": 10
+        }
+
+    Returns:
+        Report data as JSON including executive summary, sections, analytics
+    """
+    data = request.json or {}
+
+    time_range = data.get('time_range')
+    if not time_range:
+        return jsonify({"error": "time_range is required"}), 400
+
+    report_type = data.get('report_type', 'summary')
+    if report_type not in ('summary', 'detailed', 'standup'):
+        return jsonify({"error": "report_type must be summary, detailed, or standup"}), 400
+
+    include_screenshots = data.get('include_screenshots', True)
+    max_screenshots = data.get('max_screenshots', 10)
+
+    try:
+        generator = get_report_generator()
+        report = generator.generate(
+            time_range=time_range,
+            report_type=report_type,
+            include_screenshots=include_screenshots,
+            max_screenshots=max_screenshots
+        )
+
+        # Convert to JSON-serializable format
+        key_screenshots = []
+        for s in report.key_screenshots:
+            ts = s.get('timestamp')
+            if isinstance(ts, int):
+                ts_str = datetime.fromtimestamp(ts).isoformat()
+            elif isinstance(ts, datetime):
+                ts_str = ts.isoformat()
+            else:
+                ts_str = str(ts)
+
+            key_screenshots.append({
+                'id': s.get('id'),
+                'url': f"/screenshot/{s.get('id')}",
+                'timestamp': ts_str,
+                'window_title': s.get('window_title', '')
+            })
+
+        return jsonify({
+            'title': report.title,
+            'time_range': report.time_range,
+            'generated_at': report.generated_at.isoformat(),
+            'executive_summary': report.executive_summary,
+            'sections': [
+                {'title': s.title, 'content': s.content}
+                for s in report.sections
+            ],
+            'analytics': {
+                'total_active_minutes': report.analytics.total_active_minutes,
+                'total_sessions': report.analytics.total_sessions,
+                'top_apps': report.analytics.top_apps,
+                'top_windows': report.analytics.top_windows,
+                'activity_by_hour': report.analytics.activity_by_hour,
+                'activity_by_day': report.analytics.activity_by_day,
+                'busiest_period': report.analytics.busiest_period,
+            },
+            'key_screenshots': key_screenshots
+        })
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Report generation failed: {str(e)}'}), 500
+
+
+@app.route('/api/reports/export', methods=['POST'])
+def api_export_report():
+    """Generate and export report to file.
+
+    Request body:
+        {
+            "time_range": "last week",
+            "report_type": "summary",
+            "format": "pdf"  // markdown, html, pdf, json
+        }
+
+    Returns:
+        {
+            "path": "/path/to/file",
+            "filename": "Activity_Report_20251209_143000.pdf",
+            "download_url": "/reports/download/Activity_Report_20251209_143000.pdf"
+        }
+    """
+    data = request.json or {}
+
+    time_range = data.get('time_range')
+    if not time_range:
+        return jsonify({"error": "time_range is required"}), 400
+
+    report_type = data.get('report_type', 'summary')
+    export_format = data.get('format', 'markdown')
+
+    if export_format not in ('markdown', 'html', 'pdf', 'json'):
+        return jsonify({"error": "format must be markdown, html, pdf, or json"}), 400
+
+    try:
+        generator = get_report_generator()
+        report = generator.generate(
+            time_range=time_range,
+            report_type=report_type
+        )
+
+        exporter = get_report_exporter()
+        path = exporter.export(report, format=export_format)
+
+        return jsonify({
+            'path': str(path),
+            'filename': path.name,
+            'download_url': f"/reports/download/{path.name}"
+        })
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Export failed: {str(e)}'}), 500
+
+
+@app.route('/reports/download/<filename>')
+def download_report(filename):
+    """Download exported report file."""
+    from flask import send_from_directory
+
+    exporter = get_report_exporter()
+
+    # Security check: ensure filename doesn't contain path traversal
+    if '..' in filename or filename.startswith('/'):
+        abort(400, "Invalid filename")
+
+    return send_from_directory(
+        exporter.output_dir,
+        filename,
+        as_attachment=True
+    )
+
+
+@app.route('/api/reports/presets', methods=['GET'])
+def api_report_presets():
+    """Get common report presets.
+
+    Returns:
+        {
+            "presets": [
+                {"name": "Today", "time_range": "today", "type": "summary"},
+                ...
+            ]
+        }
+    """
+    return jsonify({
+        'presets': [
+            {'name': 'Today', 'time_range': 'today', 'type': 'summary'},
+            {'name': 'Yesterday', 'time_range': 'yesterday', 'type': 'summary'},
+            {'name': 'This Week', 'time_range': 'this week', 'type': 'summary'},
+            {'name': 'Last Week', 'time_range': 'last week', 'type': 'detailed'},
+            {'name': 'This Month', 'time_range': 'this month', 'type': 'detailed'},
+            {'name': 'Standup (Today)', 'time_range': 'since this morning', 'type': 'standup'},
+            {'name': 'Standup (Yesterday)', 'time_range': 'yesterday', 'type': 'standup'},
+        ]
+    })
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=55555)
