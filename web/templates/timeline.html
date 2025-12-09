@@ -2678,7 +2678,7 @@
             }
         }
 
-        // Poll for session summary completion
+        // Poll for session summary completion (for single session Generate button)
         function pollSessionSummaryStatus(sessionId) {
             const interval = setInterval(async () => {
                 try {
@@ -2687,10 +2687,8 @@
 
                     if (!status.running) {
                         clearInterval(interval);
-                        // Refresh the display
-                        if (state.selectedDate) {
-                            await loadDayData(state.selectedDate);
-                        }
+                        // Update just this session's UI without full reload
+                        await updateSessionInList(sessionId);
                     }
                 } catch (error) {
                     console.error('Failed to poll session status:', error);
@@ -2699,21 +2697,162 @@
             }, 2000);
         }
 
+        // Wait for a session summary to complete (returns Promise)
+        function waitForSessionSummary(sessionId) {
+            return new Promise((resolve, reject) => {
+                const interval = setInterval(async () => {
+                    try {
+                        const response = await fetch(`/api/sessions/${sessionId}/summarize/status`);
+                        const status = await response.json();
+
+                        if (!status.running) {
+                            clearInterval(interval);
+                            resolve(status);
+                        }
+                    } catch (error) {
+                        clearInterval(interval);
+                        reject(error);
+                    }
+                }, 2000);
+            });
+        }
+
+        // Update a single session in the list without full reload
+        async function updateSessionInList(sessionId) {
+            try {
+                const response = await fetch(`/api/sessions/${sessionId}`);
+                const session = await response.json();
+
+                const sessionCard = document.querySelector(`[data-session-id="${sessionId}"]`);
+                if (sessionCard && session.summary) {
+                    // Update status badge
+                    const statusBadge = sessionCard.querySelector('.session-status');
+                    if (statusBadge) {
+                        statusBadge.className = 'session-status summarized';
+                        statusBadge.textContent = 'Summarized';
+                    }
+
+                    // Update summary preview
+                    const summaryPreview = sessionCard.querySelector('.session-summary-preview');
+                    if (summaryPreview) {
+                        summaryPreview.classList.remove('no-summary');
+                        summaryPreview.innerHTML = `
+                            <span style="flex: 1;">${session.summary}</span>
+                            <span class="info-icon" style="flex-shrink: 0;">?
+                                <span class="info-tooltip">${session.inference_ms ? `Generated in ${(session.inference_ms / 1000).toFixed(1)}s using ${session.model || 'AI'}` : 'AI-generated summary'}</span>
+                            </span>
+                        `;
+                    }
+
+                    // Remove Generate button if present
+                    const generateBtn = sessionCard.querySelector('.generate-btn');
+                    if (generateBtn) {
+                        generateBtn.remove();
+                    }
+                }
+
+                // Update the pending count in sessions summary
+                updatePendingCount();
+            } catch (error) {
+                console.error('Failed to update session in list:', error);
+            }
+        }
+
+        // Update the pending count display
+        function updatePendingCount() {
+            const sessionCards = document.querySelectorAll('[data-session-id]');
+            let pendingCount = 0;
+            sessionCards.forEach(card => {
+                const status = card.querySelector('.session-status');
+                if (status && status.classList.contains('pending')) {
+                    pendingCount++;
+                }
+            });
+
+            // Update or hide the "Summarize pending" button
+            const summaryDiv = document.querySelector('.sessions-summary');
+            if (summaryDiv) {
+                const existingBtn = summaryDiv.querySelector('.generate-btn');
+                if (pendingCount === 0 && existingBtn) {
+                    existingBtn.remove();
+                } else if (existingBtn && pendingCount > 0) {
+                    existingBtn.textContent = `Summarize ${pendingCount} pending`;
+                }
+            }
+        }
+
         // Summarize all pending sessions for a date
-        async function summarizePendingSessions(dateStr) {
+        async function summarizePendingSessions(dateStr, buttonElement = null) {
+            // Find the button if not passed
+            if (!buttonElement) {
+                buttonElement = document.querySelector('.sessions-summary .generate-btn');
+            }
+
             try {
                 const sessionsData = await loadSessions(dateStr);
                 if (!sessionsData) return;
 
                 const pendingSessions = sessionsData.sessions.filter(s => !s.summary && s.end_time);
+                const total = pendingSessions.length;
 
-                for (const session of pendingSessions) {
-                    await summarizeSession(session.id);
-                    // Wait a bit between sessions to avoid overwhelming
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                if (total === 0) {
+                    if (buttonElement) buttonElement.remove();
+                    return;
                 }
+
+                // Show loading state immediately
+                if (buttonElement) {
+                    buttonElement.disabled = true;
+                    buttonElement.innerHTML = `<span class="spinner-small"></span> Summarizing 0/${total}...`;
+                }
+
+                // Process sessions sequentially
+                for (let i = 0; i < pendingSessions.length; i++) {
+                    const session = pendingSessions[i];
+
+                    // Update progress on button
+                    if (buttonElement) {
+                        buttonElement.innerHTML = `<span class="spinner-small"></span> Summarizing ${i + 1}/${total}...`;
+                    }
+
+                    // Update individual session's Generate button if visible
+                    const sessionBtn = document.querySelector(`[data-session-id="${session.id}"] .generate-btn`);
+                    if (sessionBtn) {
+                        sessionBtn.classList.add('loading');
+                        sessionBtn.disabled = true;
+                        sessionBtn.innerHTML = '<span class="spinner-small"></span> Generating...';
+                    }
+
+                    // Start summarization
+                    const response = await fetch(`/api/sessions/${session.id}/summarize`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'started') {
+                        // Wait for this session to complete before moving to next
+                        await waitForSessionSummary(session.id);
+                    }
+
+                    // Update this session in the UI immediately
+                    await updateSessionInList(session.id);
+                }
+
+                // All done - remove the button
+                if (buttonElement) {
+                    buttonElement.remove();
+                }
+
             } catch (error) {
                 console.error('Failed to summarize pending sessions:', error);
+                // Reset button on error
+                if (buttonElement) {
+                    buttonElement.disabled = false;
+                    buttonElement.innerHTML = 'Summarize pending';
+                }
             }
         }
     </script>

@@ -833,6 +833,19 @@ def _run_session_summarization(session_id: int):
         session_summarization_state["session_id"] = None
 
 
+@app.route('/api/sessions/<int:session_id>')
+def api_get_session(session_id):
+    """Get details for a single session including summary if available."""
+    try:
+        storage = ActivityStorage()
+        session = storage.get_session(session_id)
+        if not session:
+            return jsonify({"error": "Session not found"}), 404
+        return jsonify(session)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/sessions/<int:session_id>/summarize', methods=['POST'])
 def api_summarize_session(session_id):
     """Manually trigger summarization for a specific session.
