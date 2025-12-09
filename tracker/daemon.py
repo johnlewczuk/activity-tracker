@@ -352,8 +352,8 @@ class ActivityDaemon:
                 self.log(f"Skipping {hour}:00 - only {len(screenshots)} screenshot(s)")
                 return
 
-            # Sample if too many
-            max_samples = config_mgr.config.summarization.max_samples_per_session
+            # Sample if too many - use trigger_threshold as max samples
+            max_samples = config_mgr.config.summarization.trigger_threshold
             if len(screenshots) > max_samples:
                 step = len(screenshots) / max_samples
                 indices = [int(i * step) for i in range(max_samples)]

@@ -147,6 +147,20 @@ CREATE TABLE session_ocr_cache (
     screenshot_id INTEGER,
     UNIQUE(session_id, window_title)
 );
+
+-- Threshold-based summaries (auto-generated every N screenshots)
+CREATE TABLE threshold_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    start_time TEXT NOT NULL,               -- ISO timestamp of first screenshot
+    end_time TEXT NOT NULL,                 -- ISO timestamp of last screenshot
+    summary TEXT NOT NULL,                  -- LLM-generated summary
+    screenshot_ids TEXT NOT NULL,           -- JSON array of screenshot IDs
+    model_used TEXT NOT NULL,               -- e.g., "gemma3:14b-it-qat"
+    config_snapshot TEXT,                   -- JSON snapshot of summarization config
+    inference_time_ms INTEGER,
+    regenerated_from INTEGER,               -- Links to original if this is a regeneration
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ## Installation
@@ -187,9 +201,9 @@ pip install -r requirements.txt
 # Run the installation script (automatically enables and starts the service)
 ./scripts/install.sh
 
-# The script will ask: "Enable web interface? (y/N):"
-# - Answer 'y' to enable the integrated web server (accessible at http://0.0.0.0:55555)
-# - Answer 'n' to run capture-only mode (you can start web separately)
+# The script automatically enables:
+# - Web interface at http://127.0.0.1:55555
+# - Auto-summarization (triggers every 10 screenshots)
 ```
 
 3. **Verify installation:**
@@ -248,21 +262,19 @@ docker exec ollama ollama list
 
 **Remote Ollama Server:**
 
-To use a remote Ollama server (e.g., on a GPU workstation), set the `OLLAMA_HOST` in `tracker/config.py`:
+Configure the Ollama host in the Settings page (`http://127.0.0.1:55555/settings`) or edit `~/.config/activity-tracker/config.yaml`:
 
-```python
-OLLAMA_HOST = "http://gpu-server:11434"
+```yaml
+summarization:
+  ollama_host: http://gpu-server:11434
 ```
 
-Or use the `--ollama-host` CLI flag:
+**Threshold-Based Summarization:**
 
-```bash
-python scripts/summarize_activity.py --ollama-host http://gpu-server:11434
-```
-
-**Enable Auto-Summarization:**
-
-When running `./scripts/install.sh`, answer 'y' to "Enable auto-summarization?" to have the daemon automatically generate summaries at :05 past each hour.
+Auto-summarization is enabled by default. Summaries are automatically generated after every N screenshots (default: 10). Configure this in the Settings page:
+- **Trigger Threshold**: Number of screenshots before generating a summary
+- **Model**: Select from available Ollama models (auto-detected)
+- **Include Previous Summary**: Use context from last summary for continuity
 
 ## Usage
 
@@ -389,13 +401,33 @@ python -c "from tracker.storage import ActivityStorage; s = ActivityStorage(); p
 
 ### Configuration
 
-The system uses default settings optimized for most users:
+Configuration is managed via YAML file at `~/.config/activity-tracker/config.yaml` or through the web Settings page at `http://127.0.0.1:55555/settings`.
 
-- **Capture Interval**: 30 seconds (fixed in MVP)
+**Default Settings:**
+
+- **Capture Interval**: 30 seconds (configurable via Settings)
 - **Image Format**: WebP with 80% quality
 - **Duplicate Threshold**: 3 bits Hamming distance
 - **Storage Location**: `~/activity-tracker-data/`
-- **Service Name**: `activity-tracker`
+- **AFK Timeout**: 180 seconds (3 minutes)
+- **Trigger Threshold**: 10 screenshots before auto-summarization
+
+**Example config.yaml:**
+```yaml
+capture:
+  interval_seconds: 30
+  format: webp
+  quality: 80
+afk:
+  timeout_seconds: 180
+  min_session_minutes: 5
+summarization:
+  enabled: true
+  model: gemma3:14b-it-qat
+  ollama_host: http://localhost:11434
+  trigger_threshold: 10
+  include_previous_summary: true
+```
 
 ## API Reference
 
@@ -640,20 +672,21 @@ chmod 644 ~/activity-tracker-data/activity.db
 - [x] **Timeline View**: Calendar heatmap with hourly breakdown
 - [x] **Charts & Visualization**: Interactive charts using Chart.js
 - [x] **Comprehensive Test Suite**: Pytest-based testing with 85% coverage
-- [x] **AI Summarization**: Vision LLM-powered hourly activity summaries with OCR grounding
-- [x] **Auto-Summarization**: Background summarization at :05 past each hour
+- [x] **AI Summarization**: Vision LLM-powered activity summaries with OCR grounding
+- [x] **Auto-Summarization**: Threshold-based background summarization (every N screenshots)
 - [x] **Session-Based Tracking**: AFK detection with pynput, session management
 - [x] **Smart Session Resume**: Resume previous session on restart if within timeout
 - [x] **Summary Debugging**: View exact API requests sent to Ollama
+- [x] **Configuration File**: YAML-based settings with web UI (Settings page)
+- [x] **Multi-monitor Support**: Captures only active monitor, stores monitor metadata
+- [x] **Summary Regeneration**: Regenerate summaries with different models/settings
 
 ### Planned
 - [ ] **Wayland Support**: Add sway/wlroots integration for window information
-- [ ] **Multi-monitor Support**: Capture specific monitors or all monitors
-- [ ] **Configuration File**: YAML-based settings for intervals and thresholds
 - [ ] **Privacy Filters**: Blur sensitive areas or skip certain applications
 - [ ] **Export Features**: Generate reports and data exports (CSV/JSON/PDF)
 - [ ] **Search & Tagging**: Search screenshots by window title, add custom tags
-- [ ] **Daily Rollup Summaries**: Consolidate session summaries into daily digests
+- [ ] **Daily Rollup Summaries**: Consolidate threshold summaries into daily digests
 
 ## License
 

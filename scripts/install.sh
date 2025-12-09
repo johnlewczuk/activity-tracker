@@ -46,10 +46,11 @@ afk:
 summarization:
   enabled: true
   model: gemma3:27b-it-qat
-  max_samples_per_session: 10
-  auto_summarize_on_afk: true
+  ollama_host: http://localhost:11434
+  trigger_threshold: 10
   ocr_enabled: true
   crop_to_window: true
+  include_previous_summary: true
 storage:
   data_dir: ~/activity-tracker-data
   max_days_retention: 90
@@ -137,21 +138,11 @@ mkdir -p "$SYSTEMD_DIR"
 echo "Creating data directory structure..."
 mkdir -p "$DATA_DIR"/{screenshots,logs}
 
-# Ask user if they want web interface enabled
-read -p "Enable web interface? (y/N): " ENABLE_WEB
-EXEC_START="$PROJECT_DIR/venv/bin/python -m tracker.daemon"
-
-if [[ "$ENABLE_WEB" =~ ^[Yy]$ ]]; then
-    EXEC_START="$EXEC_START --web"
-    echo "Web interface will be enabled on http://0.0.0.0:55555"
-fi
-
-# Ask user if they want auto-summarization enabled
-read -p "Enable auto-summarization? (requires tesseract + ollama) (y/N): " ENABLE_SUMMARIZE
-if [[ "$ENABLE_SUMMARIZE" =~ ^[Yy]$ ]]; then
-    EXEC_START="$EXEC_START --auto-summarize"
-    echo "Auto-summarization will generate hourly summaries at :05 past each hour"
-fi
+# Enable web interface and auto-summarization by default
+EXEC_START="$PROJECT_DIR/venv/bin/python -m tracker.daemon --web"
+echo -e "${GREEN}✓${NC} Web interface will be enabled on http://127.0.0.1:55555"
+echo -e "${GREEN}✓${NC} Auto-summarization enabled (triggers after every 10 screenshots)"
+echo
 
 # Create systemd service file
 echo "Creating systemd service file..."
@@ -191,9 +182,6 @@ echo "   or: tail -f $DATA_DIR/logs/daemon.log"
 echo
 echo -e "${YELLOW}Data will be stored in:${NC} $DATA_DIR"
 echo -e "${YELLOW}Service file created at:${NC} $SERVICE_FILE"
-
-if [[ "$ENABLE_WEB" =~ ^[Yy]$ ]]; then
-    echo
-    echo -e "${GREEN}Web interface enabled!${NC}"
-    echo -e "Access the activity viewer at: ${YELLOW}http://0.0.0.0:55555${NC}"
-fi
+echo
+echo -e "${GREEN}Web interface available at:${NC} ${YELLOW}http://127.0.0.1:55555${NC}"
+echo -e "${GREEN}Settings can be configured at:${NC} ${YELLOW}http://127.0.0.1:55555/settings${NC}"

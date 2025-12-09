@@ -49,6 +49,7 @@ class SummarizerWorker:
         self.storage = storage
         self.config = config
         self._summarizer = None  # Lazy load to avoid import issues
+        self._summarizer_model = None  # Track which model the summarizer was created with
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._pending_queue: queue.Queue = queue.Queue()
@@ -57,13 +58,19 @@ class SummarizerWorker:
 
     @property
     def summarizer(self):
-        """Lazy-load the HybridSummarizer."""
-        if self._summarizer is None:
+        """Lazy-load the HybridSummarizer, recreating if model changed."""
+        current_model = self.config.config.summarization.model
+        current_host = self.config.config.summarization.ollama_host
+
+        # Recreate summarizer if model or host changed
+        if self._summarizer is None or self._summarizer_model != current_model:
             from .vision import HybridSummarizer
+            logger.info(f"Creating summarizer with model: {current_model}")
             self._summarizer = HybridSummarizer(
-                model=self.config.config.summarization.model,
-                ollama_host=self.config.config.summarization.ollama_host,
+                model=current_model,
+                ollama_host=current_host,
             )
+            self._summarizer_model = current_model
         return self._summarizer
 
     def start(self):

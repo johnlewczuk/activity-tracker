@@ -38,26 +38,31 @@ Linux background service that captures screenshots at intervals, stores metadata
 activity-tracker/
 ├── tracker/
 │   ├── __init__.py
-│   ├── capture.py      # Screenshot capture logic
-│   ├── storage.py      # SQLite + filesystem management
-│   ├── daemon.py       # Background service daemon
-│   ├── analytics.py    # Activity analytics and statistics
-│   ├── vision.py       # AI summarization (OCR + LLM)
-│   ├── afk.py          # AFK detection via pynput
-│   └── sessions.py     # Session management
+│   ├── capture.py           # Screenshot capture logic
+│   ├── storage.py           # SQLite + filesystem management
+│   ├── daemon.py            # Background service daemon
+│   ├── config.py            # YAML-based configuration management
+│   ├── analytics.py         # Activity analytics and statistics
+│   ├── vision.py            # AI summarization (OCR + LLM)
+│   ├── summarizer_worker.py # Background worker for threshold-based summarization
+│   ├── afk.py               # AFK detection via pynput
+│   └── sessions.py          # Session management
 ├── web/
-│   ├── app.py          # Flask application with REST API
+│   ├── app.py               # Flask application with REST API
 │   └── templates/
-├── tests/              # Pytest test suite
-│   ├── conftest.py     # Test fixtures
-│   ├── test_capture.py # Capture functionality tests
-│   ├── test_storage.py # Storage CRUD tests
-│   └── test_dhash.py   # Hash comparison tests
+│       ├── timeline.html    # Timeline view with AI summaries
+│       ├── analytics.html   # Analytics dashboard
+│       └── settings.html    # Configuration UI
+├── tests/                   # Pytest test suite
+│   ├── conftest.py          # Test fixtures
+│   ├── test_capture.py      # Capture functionality tests
+│   ├── test_storage.py      # Storage CRUD tests
+│   └── test_dhash.py        # Hash comparison tests
 ├── scripts/
-│   ├── install.sh      # Systemd service setup
+│   ├── install.sh           # Systemd service setup (auto-enables web + summarization)
 │   └── summarize_activity.py  # CLI for generating summaries
 ├── requirements.txt
-├── README.md           # Project documentation
+├── README.md                # Project documentation
 └── CLAUDE.md
 ```
 
@@ -102,11 +107,22 @@ activity-tracker/
   - Handles edge cases: window spanning monitors, xrandr unavailable, monitor hotplug
   - Significant file size reduction (e.g., 5K instead of dual 10K virtual screen)
 
+### 2025-12-09 - Phase 3: Threshold-Based Summarization
+- Replaced session-based summarization with threshold-based approach
+- Summaries triggered after every N screenshots (configurable, default: 10)
+- Background SummarizerWorker with queue-based processing
+- New threshold_summaries table with version history support
+- Regenerate summaries with different models/settings
+- Timeline UI shows AI summaries panel with regenerate/history/delete actions
+- Settings page loads Ollama models dynamically from API
+- Model changes take effect immediately (no daemon restart needed)
+- Install script now auto-enables web server and summarization (no prompts)
+
 ## Known Issues (TODO Comments Added)
 - **Multi-monitor support**: ✅ RESOLVED - Captures only active monitor, stores monitor metadata
 - **Wayland compatibility**: Assumes X11, needs display server detection (xdotool + xrandr requirement)
 - **Permission handling**: Missing checks for directory/file access
-- **Configuration**: config.py mentioned but doesn't exist
+- **Configuration**: ✅ RESOLVED - config.py with YAML-based ConfigManager
 - **Error resilience**: Daemon needs better error recovery
 
 ## Testing

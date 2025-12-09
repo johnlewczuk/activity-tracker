@@ -678,6 +678,35 @@
         #saveRestartBtn.visible {
             display: inline-flex;
         }
+
+        /* Refresh button for models dropdown */
+        .refresh-btn {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .refresh-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--text-inverse);
+        }
+
+        .refresh-btn.loading svg {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -837,23 +866,25 @@
                     </div>
                     <div class="settings-control">
                         <select id="model">
-                            <option value="gemma3:27b-it-qat">Gemma 3 27B (~18GB)</option>
-                            <option value="gemma3:14b-it-qat">Gemma 3 14B (~8GB)</option>
-                            <option value="llama3.2-vision:11b">Llama 3.2 Vision (~7GB)</option>
+                            <option value="">Loading models...</option>
                         </select>
+                        <button type="button" class="refresh-btn" onclick="loadOllamaModels()" title="Refresh models list">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
                 <div class="settings-row">
                     <div class="settings-label">
-                        <h3>Auto-Summarize on AFK</h3>
-                        <p>Generate when going inactive</p>
+                        <h3>Trigger Threshold</h3>
+                        <p>Screenshots before auto-summarizing</p>
                     </div>
                     <div class="settings-control">
-                        <label class="toggle">
-                            <input type="checkbox" id="auto_summarize_on_afk">
-                            <span class="toggle-slider"></span>
-                        </label>
+                        <input type="range" id="trigger_threshold" min="5" max="30" step="1">
+                        <span class="slider-value"><span id="trigger_threshold_value">10</span></span>
                     </div>
                 </div>
 
@@ -885,12 +916,14 @@
 
                 <div class="settings-row">
                     <div class="settings-label">
-                        <h3>Max Samples</h3>
-                        <p>Screenshots per session</p>
+                        <h3>Include Previous Summary</h3>
+                        <p>Add context from last summary</p>
                     </div>
                     <div class="settings-control">
-                        <input type="range" id="max_samples_per_session" min="5" max="20" step="1">
-                        <span class="slider-value"><span id="max_samples_per_session_value">10</span></span>
+                        <label class="toggle">
+                            <input type="checkbox" id="include_previous_summary">
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -1126,9 +1159,72 @@
                 updateUI(config);
                 updateSaveBar();
                 loadStatus();
+                loadOllamaModels();  // Load available models from Ollama
             } catch (error) {
                 showToast('Failed to load configuration', 'error');
                 console.error('Error loading config:', error);
+            }
+        }
+
+        // Load available models from Ollama API
+        async function loadOllamaModels() {
+            const select = document.getElementById('model');
+            const refreshBtn = document.querySelector('.refresh-btn');
+
+            if (refreshBtn) refreshBtn.classList.add('loading');
+
+            try {
+                const response = await fetch('/api/ollama/models');
+                const data = await response.json();
+
+                // Clear existing options
+                select.innerHTML = '';
+
+                if (data.available && data.models.length > 0) {
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.name;
+                        option.textContent = `${model.name} (${model.size})`;
+                        select.appendChild(option);
+                    });
+
+                    // Set current value from config
+                    if (config.summarization && config.summarization.model) {
+                        select.value = config.summarization.model;
+                        // If current model not in list, add it
+                        if (!select.value) {
+                            const option = document.createElement('option');
+                            option.value = config.summarization.model;
+                            option.textContent = `${config.summarization.model} (not installed)`;
+                            select.insertBefore(option, select.firstChild);
+                            select.value = config.summarization.model;
+                        }
+                    }
+                } else {
+                    // Ollama not available - show current model only
+                    const option = document.createElement('option');
+                    option.value = config.summarization?.model || '';
+                    option.textContent = config.summarization?.model
+                        ? `${config.summarization.model} (Ollama unavailable)`
+                        : 'Ollama unavailable';
+                    select.appendChild(option);
+
+                    if (data.error) {
+                        console.warn('Ollama models:', data.error);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading Ollama models:', error);
+                select.innerHTML = '<option value="">Failed to load models</option>';
+                if (config.summarization?.model) {
+                    const option = document.createElement('option');
+                    option.value = config.summarization.model;
+                    option.textContent = config.summarization.model;
+                    select.appendChild(option);
+                    select.value = config.summarization.model;
+                }
+            } finally {
+                if (refreshBtn) refreshBtn.classList.remove('loading');
             }
         }
 
@@ -1147,10 +1243,10 @@
             // Summarization
             setChecked('summarization_enabled', cfg.summarization.enabled);
             setValue('model', cfg.summarization.model);
-            setChecked('auto_summarize_on_afk', cfg.summarization.auto_summarize_on_afk);
+            setValue('trigger_threshold', cfg.summarization.trigger_threshold);
             setChecked('ocr_enabled', cfg.summarization.ocr_enabled);
             setChecked('crop_to_window', cfg.summarization.crop_to_window);
-            setValue('max_samples_per_session', cfg.summarization.max_samples_per_session);
+            setChecked('include_previous_summary', cfg.summarization.include_previous_summary);
 
             // Storage
             setValue('data_dir', cfg.storage.data_dir);
@@ -1533,7 +1629,7 @@
 
             // Range inputs
             ['interval_seconds', 'quality', 'timeout_seconds', 'min_session_minutes',
-             'max_samples_per_session', 'max_days_retention', 'max_gb_storage'].forEach(id => {
+             'trigger_threshold', 'max_days_retention', 'max_gb_storage'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
                     el.addEventListener('input', (e) => {
@@ -1549,7 +1645,7 @@
             });
 
             // Checkboxes
-            ['capture_active_monitor_only', 'summarization_enabled', 'auto_summarize_on_afk',
+            ['capture_active_monitor_only', 'summarization_enabled', 'include_previous_summary',
              'ocr_enabled', 'crop_to_window'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
@@ -1605,10 +1701,10 @@
             // Summarization
             summarization_enabled: { section: 'summarization', key: 'enabled' },
             model: { section: 'summarization', key: 'model' },
-            max_samples_per_session: { section: 'summarization', key: 'max_samples_per_session' },
-            auto_summarize_on_afk: { section: 'summarization', key: 'auto_summarize_on_afk' },
+            trigger_threshold: { section: 'summarization', key: 'trigger_threshold' },
             ocr_enabled: { section: 'summarization', key: 'ocr_enabled' },
             crop_to_window: { section: 'summarization', key: 'crop_to_window' },
+            include_previous_summary: { section: 'summarization', key: 'include_previous_summary' },
             // Storage
             data_dir: { section: 'storage', key: 'data_dir' },
             max_days_retention: { section: 'storage', key: 'max_days_retention' },

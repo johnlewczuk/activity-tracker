@@ -1218,6 +1218,336 @@
                 display: none;
             }
         }
+
+        /* ==================== Threshold Summaries ==================== */
+        .threshold-summaries-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .threshold-summaries-panel h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pending-indicator {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pending-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+            height: 24px;
+            background: var(--accent);
+            color: var(--text-inverse);
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 0 8px;
+        }
+
+        .pending-threshold {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .no-summaries {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .no-summaries small {
+            opacity: 0.7;
+        }
+
+        .threshold-summary-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .threshold-summary-block {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.2s;
+        }
+
+        .threshold-summary-block:hover {
+            border-color: var(--accent);
+        }
+
+        .threshold-summary-block .summary-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .threshold-summary-block .time-range {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+
+        .threshold-summary-block .screenshot-count {
+            font-size: 0.8rem;
+            color: var(--muted);
+            background: var(--bg);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .regenerated-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            background: var(--accent);
+            color: var(--text-inverse);
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-icon {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--text-inverse);
+        }
+
+        .btn-icon:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-icon.btn-danger:hover {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: var(--text-inverse);
+        }
+
+        .threshold-summary-block .summary-text {
+            font-size: 0.9rem;
+            color: var(--text);
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .threshold-summary-block .summary-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .threshold-summary-block .summary-meta .model {
+            font-family: monospace;
+            background: var(--bg);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .threshold-summary-block .summary-meta .inference-time {
+            color: var(--accent);
+        }
+
+        /* History Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--modal-overlay);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay .modal-content {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .modal-header .modal-close {
+            position: static;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .modal-header .modal-close:hover {
+            color: var(--text);
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-footer button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-footer button:not(.secondary) {
+            background: var(--accent);
+            border: 1px solid var(--accent);
+            color: var(--text-inverse);
+        }
+
+        .modal-footer button:not(.secondary):hover {
+            background: var(--accent-strong);
+        }
+
+        .modal-footer button.secondary {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .modal-footer button.secondary:hover {
+            background: var(--border);
+        }
+
+        /* Version History Items */
+        .version-item {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+        }
+
+        .version-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .version-item.current {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent);
+        }
+
+        .version-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .version-date {
+            font-size: 0.85rem;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .version-model {
+            font-size: 0.75rem;
+            font-family: monospace;
+            color: var(--muted);
+            background: var(--bg);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .current-badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            background: var(--accent);
+            color: var(--text-inverse);
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .version-text {
+            font-size: 0.9rem;
+            color: var(--text);
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
@@ -1659,17 +1989,26 @@
             detailContent.innerHTML = '<div class="loading"><div class="spinner"></div><div>Loading...</div></div>';
 
             try {
-                // Fetch summary, hourly data, AI summaries, and sessions
-                const [summaryRes, hourlyRes, aiSummaryRes, sessionsData] = await Promise.all([
+                // Fetch summary, hourly data, AI summaries, sessions, and threshold summaries
+                const [summaryRes, hourlyRes, aiSummaryRes, sessionsData, thresholdRes, pendingRes] = await Promise.all([
                     fetch(`/api/day/${dateStr}/summary`),
                     fetch(`/api/day/${dateStr}/hourly`),
                     fetch(`/api/summaries/${dateStr}`),
-                    loadSessions(dateStr)
+                    loadSessions(dateStr),
+                    fetch(`/api/threshold-summaries/${dateStr}`),
+                    fetch('/api/threshold-summaries/pending')
                 ]);
 
                 const summaryData = await summaryRes.json();
                 const hourlyData = await hourlyRes.json();
                 const aiSummaryData = await aiSummaryRes.json();
+                const thresholdData = await thresholdRes.json();
+                const pendingData = await pendingRes.json();
+
+                // Store threshold summaries and pending count in state
+                state.thresholdSummaries = thresholdData.summaries || [];
+                state.pendingCount = pendingData.unsummarized_count || 0;
+                state.threshold = pendingData.threshold || 10;
 
                 if (summaryData.error || hourlyData.error) {
                     throw new Error(summaryData.error || hourlyData.error);
@@ -1712,6 +2051,9 @@
                     // Fall back to hourly view
                     renderHourlyChart(hourly, aiSummaryData);
                 }
+
+                // Render threshold summaries panel
+                renderThresholdSummaries();
 
             } catch (error) {
                 console.error('Failed to load day data:', error);
@@ -2853,6 +3195,239 @@
                     buttonElement.disabled = false;
                     buttonElement.innerHTML = 'Summarize pending';
                 }
+            }
+        }
+
+        // ==================== Threshold Summaries ====================
+
+        // Render the threshold summaries panel
+        function renderThresholdSummaries() {
+            const summaries = state.thresholdSummaries || [];
+            const pendingCount = state.pendingCount || 0;
+            const threshold = state.threshold || 10;
+
+            // Find or create the threshold summaries container
+            let container = document.getElementById('thresholdSummariesPanel');
+            if (!container) {
+                // Create and insert after sessions panel
+                const sessionsPanel = document.getElementById('sessionsPanel');
+                if (sessionsPanel) {
+                    container = document.createElement('div');
+                    container.id = 'thresholdSummariesPanel';
+                    container.className = 'threshold-summaries-panel';
+                    sessionsPanel.parentNode.insertBefore(container, sessionsPanel.nextSibling);
+                } else {
+                    // Insert at end of detail content
+                    const detailContent = document.getElementById('detailContent');
+                    container = document.createElement('div');
+                    container.id = 'thresholdSummariesPanel';
+                    container.className = 'threshold-summaries-panel';
+                    detailContent.appendChild(container);
+                }
+            }
+
+            // Build the HTML
+            let html = `
+                <h3>
+                    AI Summaries
+                    <span class="info-icon">?
+                        <span class="info-tooltip">Summaries are automatically generated every ${threshold} screenshots. You can regenerate them with different settings or delete them.</span>
+                    </span>
+                </h3>
+            `;
+
+            // Pending indicator
+            if (pendingCount > 0) {
+                html += `
+                    <div class="pending-indicator">
+                        <span class="pending-count">${pendingCount}</span> screenshots pending
+                        <span class="pending-threshold">(${threshold} triggers summary)</span>
+                    </div>
+                `;
+            }
+
+            if (summaries.length === 0) {
+                html += `
+                    <div class="no-summaries">
+                        No AI summaries for this day yet.
+                        ${pendingCount >= threshold ? '<br><small>A summary will be generated shortly...</small>' : ''}
+                    </div>
+                `;
+            } else {
+                html += '<div class="threshold-summary-list">';
+                summaries.forEach(summary => {
+                    const startTime = new Date(summary.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    const endTime = new Date(summary.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    const inferenceTime = summary.inference_time_ms ? `${(summary.inference_time_ms / 1000).toFixed(1)}s` : '';
+                    const isRegenerated = summary.regenerated_from !== null;
+
+                    html += `
+                        <div class="threshold-summary-block" data-summary-id="${summary.id}">
+                            <div class="summary-header">
+                                <span class="time-range">${startTime} - ${endTime}</span>
+                                <span class="screenshot-count">${summary.screenshot_count} screenshots</span>
+                                ${isRegenerated ? '<span class="regenerated-badge">Regenerated</span>' : ''}
+                                <div class="summary-actions">
+                                    <button class="btn-icon" onclick="regenerateSummary(${summary.id})" title="Regenerate with current settings">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                    </button>
+                                    <button class="btn-icon" onclick="showSummaryHistory(${summary.id})" title="View versions">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    </button>
+                                    <button class="btn-icon btn-danger" onclick="deleteSummary(${summary.id})" title="Delete summary">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="summary-text">${summary.summary}</div>
+                            <div class="summary-meta">
+                                <span class="model">${summary.model_used || 'Unknown model'}</span>
+                                ${inferenceTime ? `<span class="inference-time">${inferenceTime}</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Regenerate a summary with current settings
+        async function regenerateSummary(summaryId) {
+            const btn = document.querySelector(`[data-summary-id="${summaryId}"] .btn-icon:first-child`);
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-small"></span>';
+            }
+
+            try {
+                const response = await fetch(`/api/threshold-summaries/${summaryId}/regenerate`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.status === 'queued') {
+                    // Poll for completion
+                    pollForSummaryUpdate(summaryId);
+                }
+            } catch (error) {
+                console.error('Failed to regenerate summary:', error);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+                }
+            }
+        }
+
+        // Poll for summary update after regeneration
+        function pollForSummaryUpdate(summaryId) {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/threshold-summaries/worker-status');
+                    const status = await response.json();
+
+                    if (!status.running || status.current_task !== 'regenerate') {
+                        clearInterval(interval);
+                        // Reload the day data to show updated summary
+                        if (state.selectedDate) {
+                            await loadDayData(state.selectedDate);
+                        }
+                    }
+                } catch (error) {
+                    clearInterval(interval);
+                }
+            }, 2000);
+        }
+
+        // Show summary version history
+        async function showSummaryHistory(summaryId) {
+            try {
+                const response = await fetch(`/api/threshold-summaries/${summaryId}/history`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Failed to load history: ' + data.error);
+                    return;
+                }
+
+                // Create modal
+                let modal = document.getElementById('summaryHistoryModal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'summaryHistoryModal';
+                    modal.className = 'modal-overlay';
+                    document.body.appendChild(modal);
+                }
+
+                const versions = data.versions || [];
+                let versionsHtml = versions.map((v, idx) => {
+                    const isLatest = idx === versions.length - 1;
+                    const date = new Date(v.created_at).toLocaleString();
+                    return `
+                        <div class="version-item ${isLatest ? 'current' : ''}">
+                            <div class="version-header">
+                                <span class="version-date">${date}</span>
+                                <span class="version-model">${v.model_used}</span>
+                                ${isLatest ? '<span class="current-badge">Latest</span>' : ''}
+                            </div>
+                            <div class="version-text">${v.summary}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Summary History</h3>
+                            <button class="modal-close" onclick="closeSummaryHistory()">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            ${versions.length > 0 ? versionsHtml : '<p>No version history available.</p>'}
+                        </div>
+                        <div class="modal-footer">
+                            <button onclick="regenerateSummary(${data.original_id}); closeSummaryHistory();">
+                                Regenerate with Current Settings
+                            </button>
+                            <button class="secondary" onclick="closeSummaryHistory()">Close</button>
+                        </div>
+                    </div>
+                `;
+
+                modal.style.display = 'flex';
+            } catch (error) {
+                console.error('Failed to load summary history:', error);
+            }
+        }
+
+        // Close summary history modal
+        function closeSummaryHistory() {
+            const modal = document.getElementById('summaryHistoryModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Delete a summary
+        async function deleteSummary(summaryId) {
+            if (!confirm('Delete this summary? The screenshots will become unsummarized.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/threshold-summaries/${summaryId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.status === 'deleted') {
+                    // Reload the day data
+                    if (state.selectedDate) {
+                        await loadDayData(state.selectedDate);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to delete summary:', error);
             }
         }
     </script>

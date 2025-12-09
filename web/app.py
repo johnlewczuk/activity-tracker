@@ -1095,6 +1095,80 @@ def get_status():
         return jsonify({"error": f"Failed to get status: {str(e)}"}), 500
 
 
+@app.route('/api/ollama/models', methods=['GET'])
+def get_ollama_models():
+    """Fetch available models from Ollama API.
+
+    Returns:
+        {
+            "models": [
+                {"name": "gemma3:14b-it-qat", "size": "8.0 GB", "modified": "..."},
+                ...
+            ],
+            "available": true
+        }
+    """
+    import requests
+
+    try:
+        ollama_host = config_manager.config.summarization.ollama_host
+        response = requests.get(f"{ollama_host}/api/tags", timeout=5)
+
+        if response.status_code == 200:
+            data = response.json()
+            models = []
+            for model in data.get('models', []):
+                # Format size in human-readable format
+                size_bytes = model.get('size', 0)
+                if size_bytes >= 1024**3:
+                    size_str = f"{size_bytes / (1024**3):.1f} GB"
+                elif size_bytes >= 1024**2:
+                    size_str = f"{size_bytes / (1024**2):.1f} MB"
+                else:
+                    size_str = f"{size_bytes / 1024:.1f} KB"
+
+                models.append({
+                    'name': model.get('name', ''),
+                    'size': size_str,
+                    'modified': model.get('modified_at', ''),
+                    'details': model.get('details', {})
+                })
+
+            # Sort by name
+            models.sort(key=lambda x: x['name'])
+
+            return jsonify({
+                'models': models,
+                'available': True,
+                'current': config_manager.config.summarization.model
+            })
+        else:
+            return jsonify({
+                'models': [],
+                'available': False,
+                'error': f"Ollama returned status {response.status_code}"
+            })
+
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'models': [],
+            'available': False,
+            'error': 'Cannot connect to Ollama. Is it running?'
+        })
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'models': [],
+            'available': False,
+            'error': 'Ollama connection timed out'
+        })
+    except Exception as e:
+        return jsonify({
+            'models': [],
+            'available': False,
+            'error': str(e)
+        })
+
+
 # ==================== Threshold-Based Summary API ====================
 
 # Global reference to summarizer worker (set by daemon when running)
