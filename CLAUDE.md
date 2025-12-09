@@ -140,6 +140,8 @@ activity-tracker/
 - Reports page UI with quick presets and custom time ranges
 - API endpoints: /api/reports/generate, /api/reports/export, /api/reports/presets
 - Reports stored in ~/activity-tracker-data/reports/
+- Default model changed to gemma3:12b-it-qat (better balance of speed/quality)
+- Added 1h keepalive to Ollama API calls for faster subsequent responses
 
 ## Known Issues (TODO Comments Added)
 - **Multi-monitor support**: ✅ RESOLVED - Captures only active monitor, stores monitor metadata
