@@ -169,6 +169,9 @@ class SummarizerWorker:
     def force_summarize_pending(self) -> int:
         """Force immediate summarization of all pending screenshots.
 
+        Splits screenshots into time-based batches based on frequency_minutes
+        setting, so each summary covers approximately that time period.
+
         Returns:
             Number of screenshots queued for summarization.
         """
@@ -177,9 +180,45 @@ class SummarizerWorker:
             logger.info("No unsummarized screenshots to process")
             return 0
 
-        # Queue all pending screenshots for summarization
-        self._pending_queue.put(('summarize', unsummarized))
-        logger.info(f"Force-queued {len(unsummarized)} screenshots for summarization")
+        # Sort by timestamp
+        unsummarized = sorted(unsummarized, key=lambda s: s['timestamp'])
+
+        # Split into time-based batches using frequency_minutes
+        frequency_minutes = self.config.config.summarization.frequency_minutes
+        frequency_seconds = frequency_minutes * 60
+
+        batches = []
+        current_batch = []
+        batch_start_ts = None
+
+        for screenshot in unsummarized:
+            ts = screenshot['timestamp']
+
+            if batch_start_ts is None:
+                batch_start_ts = ts
+                current_batch = [screenshot]
+            elif ts - batch_start_ts < frequency_seconds:
+                # Still within the time window
+                current_batch.append(screenshot)
+            else:
+                # Start a new batch
+                if current_batch:
+                    batches.append(current_batch)
+                batch_start_ts = ts
+                current_batch = [screenshot]
+
+        # Don't forget the last batch
+        if current_batch:
+            batches.append(current_batch)
+
+        # Queue each batch separately
+        for batch in batches:
+            self._pending_queue.put(('summarize', batch))
+
+        logger.info(
+            f"Force-queued {len(unsummarized)} screenshots in {len(batches)} batches "
+            f"({frequency_minutes}min intervals)"
+        )
         return len(unsummarized)
 
     def get_status(self) -> Dict:
