@@ -1724,6 +1724,34 @@ class ActivityStorage:
                 results.append(result)
             return results
 
+    def has_active_session_in_range(self, start: 'datetime', end: 'datetime') -> bool:
+        """Check if any session was active during the given time range.
+
+        A session overlaps if it started before the range ends AND
+        (ended after the range starts OR is still active).
+
+        This is used to detect AFK periods - if no session overlaps with
+        the time range, the user was AFK for the entire period.
+
+        Args:
+            start: Start datetime of the range.
+            end: End datetime of the range.
+
+        Returns:
+            True if at least one session overlaps with the range.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT 1 FROM activity_sessions
+                WHERE datetime(start_time) < datetime(?)
+                  AND (end_time IS NULL OR datetime(end_time) > datetime(?))
+                LIMIT 1
+                """,
+                (end.isoformat(), start.isoformat()),
+            )
+            return cursor.fetchone() is not None
+
     # =========================================================================
     # Project-Aware Summary Methods
     # =========================================================================

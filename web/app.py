@@ -1889,7 +1889,6 @@ def api_generate_daily_summary(date):
         summarizer = HybridSummarizer(
             model=cfg.model,
             ollama_host=cfg.ollama_host,
-            summarization_mode=cfg.summarization_mode,
         )
 
         if not summarizer.is_available():
@@ -1950,7 +1949,6 @@ def get_report_generator():
             summarizer = HybridSummarizer(
                 model=cfg.model,
                 ollama_host=cfg.ollama_host,
-                summarization_mode=cfg.summarization_mode,
             )
         except Exception:
             summarizer = None

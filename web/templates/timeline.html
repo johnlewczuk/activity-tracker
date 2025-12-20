@@ -4051,7 +4051,6 @@
                             <tr>
                                 <th style="width: 40px;"><input type="checkbox" class="summary-checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(event)"></th>
                                 <th>Time</th>
-                                <th>Dur</th>
                                 <th>Summary</th>
                                 <th style="width: 60px;">Conf</th>
                                 <th style="width: 80px;">Screens</th>
@@ -4112,7 +4111,6 @@
                                 <input type="checkbox" class="summary-checkbox" data-id="${summary.id}" onclick="handleCheckboxClick(event, ${summary.id})">
                             </td>
                             <td class="summary-time">${startTime}</td>
-                            <td class="summary-duration">${durationStr}</td>
                             <td class="summary-text-cell">
                                 <span title="${summary.summary}">${summary.summary}</span>
                                 ${summary.explanation ? `<span class="explanation-icon" onclick="event.stopPropagation(); showExplanation('${explanationEscaped}')" title="Show explanation">ℹ️</span>` : ''}

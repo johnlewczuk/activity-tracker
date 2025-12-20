@@ -117,6 +117,9 @@ def get_terminal_context(window_pid: int) -> Optional[TerminalContext]:
     - Shell type
     - SSH and tmux detection
 
+    For terminals with tmux attached, queries tmux directly for accurate
+    active pane information (works correctly with tiling terminals like Tilix).
+
     Args:
         window_pid: PID of the terminal window (from xdotool getwindowpid).
 
@@ -130,7 +133,22 @@ def get_terminal_context(window_pid: int) -> Optional[TerminalContext]:
             # Terminal might be empty or just started
             return _get_process_context(window_pid)
 
-        # Find the "interesting" foreground process (deepest non-shell)
+        # Check if tmux is running in this terminal
+        # If so, query tmux directly for accurate pane information
+        has_tmux = any(
+            'tmux' in Path(f"/proc/{pid}/comm").read_text().strip().lower()
+            for pid in descendants
+            if Path(f"/proc/{pid}/comm").exists()
+        )
+
+        if has_tmux:
+            # Use tmux-aware introspection for accurate active pane detection
+            # This queries tmux directly and handles SSH detection internally
+            tmux_context = _get_tmux_active_pane_context()
+            if tmux_context:
+                return tmux_context
+
+        # Fallback: Find the "interesting" foreground process (deepest non-shell)
         foreground_pid = _find_foreground_process(descendants)
         if foreground_pid is None:
             foreground_pid = descendants[-1] if descendants else window_pid
@@ -151,6 +169,26 @@ def get_terminal_context(window_pid: int) -> Optional[TerminalContext]:
     except Exception as e:
         logger.debug(f"Terminal introspection failed for PID {window_pid}: {e}")
         return None
+
+
+def _get_immediate_children(pid: int) -> List[int]:
+    """Get immediate child PIDs of a process (not recursive).
+
+    Args:
+        pid: Parent process ID.
+
+    Returns:
+        List of immediate child PIDs.
+    """
+    try:
+        children_path = Path(f"/proc/{pid}/task/{pid}/children")
+        if children_path.exists():
+            children_str = children_path.read_text().strip()
+            if children_str:
+                return [int(p) for p in children_str.split()]
+    except (OSError, ValueError):
+        pass
+    return []
 
 
 def _get_descendant_pids(pid: int) -> List[int]:
@@ -351,6 +389,97 @@ def _get_tmux_session(pids: List[int]) -> Optional[str]:
         pass
 
     return "tmux"  # Generic fallback
+
+
+def _get_tmux_active_pane_context() -> Optional[TerminalContext]:
+    """Get context from tmux's active pane.
+
+    When tmux is running, this queries tmux directly for accurate
+    information about what's running in the currently focused pane.
+    This is more reliable than process tree walking for multi-pane setups.
+
+    IMPORTANT: We trust tmux's pane_current_command as the foreground process
+    rather than walking the process tree, because background child processes
+    (like MCP servers spawned by Claude Code) would incorrectly be identified
+    as the foreground process.
+
+    Returns:
+        TerminalContext from the active tmux pane, or None if query fails.
+    """
+    try:
+        # Query tmux for active pane info in a single call
+        # Format: command|path|pid|session
+        result = subprocess.run(
+            ['tmux', 'display-message', '-p',
+             '#{pane_current_command}|#{pane_current_path}|#{pane_pid}|#{session_name}'],
+            capture_output=True,
+            text=True,
+            timeout=1
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+
+        parts = result.stdout.strip().split('|')
+        if len(parts) < 4:
+            return None
+
+        pane_command = parts[0]
+        pane_path = parts[1]
+        pane_pid = parts[2]
+        session_name = parts[3]
+
+        # pane_current_command from tmux is the ACTUAL foreground process
+        # This is what the user is interacting with, not background children
+        foreground_process = pane_command
+        full_command = pane_command
+
+        # For shell processes, check if there's a direct child (immediate foreground job)
+        # But don't walk the entire tree - background processes aren't foreground
+        children = []
+        if pane_command in SHELL_NAMES and pane_pid.isdigit():
+            pid = int(pane_pid)
+            # Only get immediate children, not the full descendant tree
+            immediate_children = _get_immediate_children(pid)
+            if immediate_children:
+                # Get context from the first non-shell immediate child
+                for child_pid in immediate_children:
+                    ctx = _get_process_context(child_pid)
+                    if ctx and ctx.foreground_process not in SHELL_NAMES:
+                        foreground_process = ctx.foreground_process
+                        full_command = ctx.full_command
+                        break
+
+            # Get all descendants for SSH detection
+            children = _get_descendant_pids(pid)
+
+        # If foreground is a known app (not shell), get its cmdline for full_command
+        elif pane_pid.isdigit():
+            pid = int(pane_pid)
+            # Find the process matching pane_command to get its full cmdline
+            children = _get_descendant_pids(pid)
+            for child_pid in children:
+                ctx = _get_process_context(child_pid)
+                if ctx and ctx.foreground_process == pane_command:
+                    full_command = ctx.full_command
+                    break
+
+        # Determine shell type
+        shell = _find_shell_in_ancestry(int(pane_pid)) if pane_pid.isdigit() else "bash"
+        if not shell:
+            shell = "bash"
+
+        return TerminalContext(
+            foreground_process=foreground_process,
+            full_command=full_command,
+            working_directory=pane_path,
+            shell=shell,
+            is_ssh=_check_ssh_in_tree(children),
+            tmux_session=session_name
+        )
+
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError) as e:
+        logger.debug(f"Failed to get tmux active pane context: {e}")
+        return None
 
 
 def get_window_pid(window_id: str) -> Optional[int]:

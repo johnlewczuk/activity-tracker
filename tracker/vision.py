@@ -328,14 +328,14 @@ class HybridSummarizer:
             if ocr_lines:
                 ocr_section = "\n".join(ocr_lines)
 
-        # Ensure we have something to send
-        if not images_base64 and not ocr_section:
-            raise RuntimeError("No content to send to LLM (no images or OCR text)")
-
         # Build focus context from events (if enabled)
         focus_context = ""
         if self.include_focus_context and focus_events:
             focus_context = self._build_focus_context(focus_events)
+
+        # Ensure we have something to send (images, OCR, or focus context)
+        if not images_base64 and not ocr_section and not focus_context:
+            raise RuntimeError("No content to send to LLM (no images, OCR text, or focus context)")
 
         # Build prompt
         prompt_parts = [

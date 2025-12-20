@@ -9,6 +9,13 @@ When starting a new session on this project:
 
 **IMPORTANT:** After every task, check if CLAUDE.md needs to be updated
 
+## After Code Changes
+When making changes to daemon code (`tracker/*.py`), automatically restart the service:
+```bash
+systemctl --user restart activity-tracker
+```
+This applies to changes in: capture, storage, daemon, config, vision, summarizer_worker, window_watcher, terminal_introspect, afk, sessions modules.
+
 ## Project Goal
 Linux background service that captures screenshots at intervals, stores metadata in SQLite, and provides a simple web viewer.
 
@@ -381,6 +388,25 @@ activity-tracker/
   - Helps identify hallucinations by seeing what model actually observed
   - Low confidence scores indicate when model is guessing
   - Explanations show specific windows/text/elements that informed the summary
+
+### 2025-12-20 - Phase 13: AFK-Aware Summarization & Terminal Introspection Fix
+- **Skip summarization during AFK periods**:
+  - Summaries are no longer generated for time slots when user was away from keyboard
+  - Added `has_active_session_in_range(start, end)` method to storage.py
+  - Checks if any session overlaps with the time range (session started before range ends AND ended after range starts)
+- **Updated `_do_summarize_time_range()`**:
+  - Checks for active session before proceeding with summarization
+  - Logs "Skipping summarization - user was AFK for entire period" when no session exists
+- **Updated `force_summarize_pending()`**:
+  - Filters out AFK time slots before queueing
+  - Logs count of skipped AFK slots
+  - Returns only count of active (non-AFK) slots queued
+- **Fixed terminal introspection for tmux**:
+  - Previously: walked process tree to find deepest process, which found background MCP servers
+  - Now: trusts tmux's `pane_current_command` as the actual foreground process
+  - Added `_get_immediate_children()` helper for non-recursive child lookup
+  - Only walks full tree for SSH detection, not foreground process detection
+  - Fixes incorrect "node mcp-server-playwright" appearing instead of actual foreground app (e.g., "claude")
 
 ## Future Improvements
 - **Database normalization**: Unify `threshold_summaries` and `daily_summaries` into single `summaries` table with type field (threshold, hourly, daily, weekly, custom), plus separate `prompts` table for API request storage. Supports hierarchical relationships (daily→hourly→threshold).

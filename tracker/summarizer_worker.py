@@ -76,10 +76,7 @@ class SummarizerWorker:
                 max_samples=cfg.max_samples,
                 sample_interval_minutes=cfg.sample_interval_minutes,
                 focus_weighted_sampling=cfg.focus_weighted_sampling,
-                # Use summarization_mode if it's not the default
-                # (i.e., user explicitly set it to something other than ocr_and_screenshots)
-                summarization_mode=cfg.summarization_mode if cfg.summarization_mode != "ocr_and_screenshots" else None,
-                # New content mode flags (only used if summarization_mode is None/default)
+                # Use individual content flags (summarization_mode is deprecated)
                 include_focus_context=getattr(cfg, 'include_focus_context', True),
                 include_screenshots=getattr(cfg, 'include_screenshots', True),
                 include_ocr=getattr(cfg, 'include_ocr', True),
@@ -256,15 +253,27 @@ class SummarizerWorker:
         # Sort slots chronologically
         sorted_slots = sorted(slots_to_process, key=lambda x: x[0])
 
-        # Queue each time slot for summarization
+        # Filter out slots where user was entirely AFK
+        active_slots = []
+        afk_slots = 0
         for slot_start, slot_end in sorted_slots:
+            if self.storage.has_active_session_in_range(slot_start, slot_end):
+                active_slots.append((slot_start, slot_end))
+            else:
+                afk_slots += 1
+
+        if afk_slots > 0:
+            logger.info(f"Skipping {afk_slots} time slots where user was AFK")
+
+        # Queue each active time slot for summarization
+        for slot_start, slot_end in active_slots:
             self._pending_queue.put(('summarize_range', (slot_start, slot_end)))
 
         logger.info(
-            f"Force-queued {len(sorted_slots)} time slots for summarization "
-            f"({frequency_minutes}min intervals, covering {len(unsummarized)} screenshots)"
+            f"Force-queued {len(active_slots)} time slots for summarization "
+            f"({frequency_minutes}min intervals, skipped {afk_slots} AFK slots)"
         )
-        return len(sorted_slots)
+        return len(active_slots)
 
     def get_status(self) -> Dict:
         """Get current worker status.
@@ -351,6 +360,9 @@ class SummarizerWorker:
         It gathers screenshots and focus events from the time range and
         sends them to the LLM.
 
+        Skips summarization if the user was AFK for the entire period
+        (no active session overlapping with the time range).
+
         Args:
             start_time: Start of the time range
             end_time: End of the time range
@@ -359,6 +371,14 @@ class SummarizerWorker:
             f"Summarizing time range: {start_time.strftime('%H:%M')} - "
             f"{end_time.strftime('%H:%M')}"
         )
+
+        # Skip if user was AFK for the entire period
+        if not self.storage.has_active_session_in_range(start_time, end_time):
+            logger.info(
+                f"Skipping summarization - user was AFK for entire period "
+                f"({start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')})"
+            )
+            return
 
         # Check if summarizer is available
         if not self.summarizer.is_available():
@@ -406,16 +426,19 @@ class SummarizerWorker:
             return
 
         # Build config snapshot
+        cfg = self.config.config.summarization
         config_snapshot = {
-            'model': self.config.config.summarization.model,
-            'threshold': self.config.config.summarization.trigger_threshold,
-            'summarization_mode': self.config.config.summarization.summarization_mode,
-            'crop_to_window': self.config.config.summarization.crop_to_window,
-            'include_previous_summary': self.config.config.summarization.include_previous_summary,
-            'max_samples': self.config.config.summarization.max_samples,
-            'sample_interval_minutes': self.config.config.summarization.sample_interval_minutes,
-            'focus_weighted_sampling': self.config.config.summarization.focus_weighted_sampling,
-            'frequency_minutes': self.config.config.summarization.frequency_minutes,
+            'model': cfg.model,
+            'threshold': cfg.trigger_threshold,
+            'include_focus_context': getattr(cfg, 'include_focus_context', True),
+            'include_screenshots': getattr(cfg, 'include_screenshots', True),
+            'include_ocr': getattr(cfg, 'include_ocr', True),
+            'crop_to_window': cfg.crop_to_window,
+            'include_previous_summary': cfg.include_previous_summary,
+            'max_samples': cfg.max_samples,
+            'sample_interval_minutes': cfg.sample_interval_minutes,
+            'focus_weighted_sampling': cfg.focus_weighted_sampling,
+            'frequency_minutes': cfg.frequency_minutes,
         }
 
         # Save to database
@@ -481,15 +504,18 @@ class SummarizerWorker:
             return
 
         # Build config snapshot
+        cfg = self.config.config.summarization
         config_snapshot = {
-            'model': self.config.config.summarization.model,
-            'threshold': self.config.config.summarization.trigger_threshold,
-            'summarization_mode': self.config.config.summarization.summarization_mode,
-            'crop_to_window': self.config.config.summarization.crop_to_window,
-            'include_previous_summary': self.config.config.summarization.include_previous_summary,
-            'max_samples': self.config.config.summarization.max_samples,
-            'sample_interval_minutes': self.config.config.summarization.sample_interval_minutes,
-            'focus_weighted_sampling': self.config.config.summarization.focus_weighted_sampling,
+            'model': cfg.model,
+            'threshold': cfg.trigger_threshold,
+            'include_focus_context': getattr(cfg, 'include_focus_context', True),
+            'include_screenshots': getattr(cfg, 'include_screenshots', True),
+            'include_ocr': getattr(cfg, 'include_ocr', True),
+            'crop_to_window': cfg.crop_to_window,
+            'include_previous_summary': cfg.include_previous_summary,
+            'max_samples': cfg.max_samples,
+            'sample_interval_minutes': cfg.sample_interval_minutes,
+            'focus_weighted_sampling': cfg.focus_weighted_sampling,
         }
 
         # Get timestamps
@@ -563,15 +589,18 @@ class SummarizerWorker:
             return
 
         # Build config snapshot
+        cfg = self.config.config.summarization
         config_snapshot = {
-            'model': self.config.config.summarization.model,
-            'threshold': self.config.config.summarization.trigger_threshold,
-            'summarization_mode': self.config.config.summarization.summarization_mode,
-            'crop_to_window': self.config.config.summarization.crop_to_window,
+            'model': cfg.model,
+            'threshold': cfg.trigger_threshold,
+            'include_focus_context': getattr(cfg, 'include_focus_context', True),
+            'include_screenshots': getattr(cfg, 'include_screenshots', True),
+            'include_ocr': getattr(cfg, 'include_ocr', True),
+            'crop_to_window': cfg.crop_to_window,
             'include_previous_summary': False,  # Not used for regeneration
-            'max_samples': self.config.config.summarization.max_samples,
-            'sample_interval_minutes': self.config.config.summarization.sample_interval_minutes,
-            'focus_weighted_sampling': self.config.config.summarization.focus_weighted_sampling,
+            'max_samples': cfg.max_samples,
+            'sample_interval_minutes': cfg.sample_interval_minutes,
+            'focus_weighted_sampling': cfg.focus_weighted_sampling,
         }
 
         # Find the original root ID (in case this is already a regeneration)
@@ -605,8 +634,8 @@ class SummarizerWorker:
         Returns:
             List of dicts with window_title and ocr_text
         """
-        mode = self.config.config.summarization.summarization_mode
-        if mode == "screenshots_only":
+        # Skip OCR if not enabled in settings
+        if not getattr(self.config.config.summarization, 'include_ocr', True):
             return []
 
         ocr_texts = []
