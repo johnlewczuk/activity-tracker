@@ -323,6 +323,9 @@ class ActivityStorage:
             if 'confidence' not in columns:
                 conn.execute("ALTER TABLE threshold_summaries ADD COLUMN confidence REAL")
                 print("Added 'confidence' column to threshold_summaries table")
+            if 'tags' not in columns:
+                conn.execute("ALTER TABLE threshold_summaries ADD COLUMN tags TEXT")
+                print("Added 'tags' column to threshold_summaries table")
 
             # Junction table for threshold summaries <-> screenshots (proper M:N relationship)
             conn.execute("""
@@ -1397,6 +1400,7 @@ class ActivityStorage:
         project: str = None,
         prompt_text: str = None,
         explanation: str = None,
+        tags: List[str] = None,
         confidence: float = None
     ) -> int:
         """Save a new threshold-based summary.
@@ -1413,6 +1417,7 @@ class ActivityStorage:
             project: Detected project context name
             prompt_text: The full prompt text sent to the LLM (for debugging)
             explanation: Model's explanation of what it observed
+            tags: List of tags from the LLM
             confidence: Model's confidence score (0.0-1.0)
 
         Returns:
@@ -1424,8 +1429,8 @@ class ActivityStorage:
                 INSERT INTO threshold_summaries
                     (start_time, end_time, summary, screenshot_ids, screenshot_count,
                      model_used, config_snapshot, inference_time_ms, regenerated_from, project, prompt_text,
-                     explanation, confidence)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     explanation, tags, confidence)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     start_time,
@@ -1440,6 +1445,7 @@ class ActivityStorage:
                     project,
                     prompt_text,
                     explanation,
+                    json.dumps(tags) if tags else None,
                     confidence,
                 ),
             )
@@ -1468,7 +1474,7 @@ class ActivityStorage:
                 SELECT id, start_time, end_time, summary, screenshot_ids,
                        screenshot_count, model_used, config_snapshot,
                        inference_time_ms, created_at, regenerated_from, project, prompt_text,
-                       explanation, confidence
+                       explanation, tags, confidence
                 FROM threshold_summaries
                 WHERE id = ?
                 """,
@@ -1480,6 +1486,10 @@ class ActivityStorage:
                 result['screenshot_ids'] = json.loads(result['screenshot_ids'])
                 if result['config_snapshot']:
                     result['config_snapshot'] = json.loads(result['config_snapshot'])
+                if result.get('tags'):
+                    result['tags'] = json.loads(result['tags'])
+                else:
+                    result['tags'] = []
                 # Normalize created_at to ISO format with T separator (UTC to local)
                 if result.get('created_at'):
                     try:
@@ -1508,7 +1518,7 @@ class ActivityStorage:
                 SELECT id, start_time, end_time, summary, screenshot_ids,
                        screenshot_count, model_used, config_snapshot,
                        inference_time_ms, created_at, regenerated_from, project,
-                       explanation, confidence
+                       explanation, tags, confidence
                 FROM threshold_summaries
                 WHERE date(start_time) = ?
                 ORDER BY start_time ASC
@@ -1521,6 +1531,10 @@ class ActivityStorage:
                 result['screenshot_ids'] = json.loads(result['screenshot_ids'])
                 if result['config_snapshot']:
                     result['config_snapshot'] = json.loads(result['config_snapshot'])
+                if result.get('tags'):
+                    result['tags'] = json.loads(result['tags'])
+                else:
+                    result['tags'] = []
                 results.append(result)
             return results
 
@@ -1539,7 +1553,7 @@ class ActivityStorage:
                 SELECT id, start_time, end_time, summary, screenshot_ids,
                        screenshot_count, model_used, config_snapshot,
                        inference_time_ms, created_at, regenerated_from, project,
-                       explanation, confidence
+                       explanation, tags, confidence
                 FROM threshold_summaries
                 WHERE id = ? OR regenerated_from = ?
                 ORDER BY created_at ASC
@@ -1552,6 +1566,10 @@ class ActivityStorage:
                 result['screenshot_ids'] = json.loads(result['screenshot_ids'])
                 if result['config_snapshot']:
                     result['config_snapshot'] = json.loads(result['config_snapshot'])
+                if result.get('tags'):
+                    result['tags'] = json.loads(result['tags'])
+                else:
+                    result['tags'] = []
                 results.append(result)
             return results
 
@@ -1859,31 +1877,38 @@ class ActivityStorage:
             conn.commit()
             return cursor.lastrowid
 
-    def get_focus_events_in_range(self, start: 'datetime', end: 'datetime') -> List[Dict]:
+    def get_focus_events_in_range(
+        self, start: 'datetime', end: 'datetime', require_session: bool = False
+    ) -> List[Dict]:
         """Get all focus events that started within time range.
 
         Args:
             start: Start datetime (inclusive).
             end: End datetime (inclusive).
+            require_session: If True, exclude events with NULL session_id (AFK periods).
 
         Returns:
             List of focus event dicts ordered by start_time.
         """
+        session_filter = "AND session_id IS NOT NULL" if require_session else ""
         with self.get_connection() as conn:
             cursor = conn.execute(
-                """
+                f"""
                 SELECT id, window_title, app_name, window_class,
                        start_time, end_time, duration_seconds, session_id, terminal_context
                 FROM window_focus_events
                 WHERE datetime(start_time) >= datetime(?)
                   AND datetime(start_time) <= datetime(?)
+                  {session_filter}
                 ORDER BY start_time ASC
                 """,
                 (start.isoformat(), end.isoformat())
             )
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_focus_events_overlapping_range(self, start: 'datetime', end: 'datetime') -> List[Dict]:
+    def get_focus_events_overlapping_range(
+        self, start: 'datetime', end: 'datetime', require_session: bool = False
+    ) -> List[Dict]:
         """Get all focus events that overlap with time range.
 
         This includes events that:
@@ -1893,18 +1918,21 @@ class ActivityStorage:
         Args:
             start: Start datetime.
             end: End datetime.
+            require_session: If True, exclude events with NULL session_id (AFK periods).
 
         Returns:
             List of focus event dicts ordered by start_time.
         """
+        session_filter = "AND session_id IS NOT NULL" if require_session else ""
         with self.get_connection() as conn:
             cursor = conn.execute(
-                """
+                f"""
                 SELECT id, window_title, app_name, window_class,
                        start_time, end_time, duration_seconds, session_id, terminal_context
                 FROM window_focus_events
                 WHERE datetime(start_time) < datetime(?)
                   AND (datetime(end_time) > datetime(?) OR end_time IS NULL)
+                  {session_filter}
                 ORDER BY start_time ASC
                 """,
                 (end.isoformat(), start.isoformat())

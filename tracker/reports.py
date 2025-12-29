@@ -160,8 +160,8 @@ class ReportGenerator:
         screenshots = self.storage.get_screenshots_in_range(start, end)
         sessions = self.storage.get_sessions_in_range(start, end)
 
-        # Get focus events for app/window usage analytics
-        focus_events = self.storage.get_focus_events_in_range(start, end)
+        # Get focus events for app/window usage analytics (exclude AFK periods)
+        focus_events = self.storage.get_focus_events_in_range(start, end, require_session=True)
 
         logger.debug(
             f"Found {len(summaries)} summaries, "

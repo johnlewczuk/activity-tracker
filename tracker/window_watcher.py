@@ -24,6 +24,7 @@ class WindowFocusEvent:
     start_time: datetime
     end_time: Optional[datetime] = None
     window_pid: Optional[int] = None
+    session_id: Optional[int] = None  # Captured at focus start, not save time
 
     @property
     def duration_seconds(self) -> float:
@@ -48,17 +49,20 @@ class WindowWatcher:
         self,
         poll_interval: float = 1.0,
         on_focus_change: Callable[[WindowFocusEvent, WindowFocusEvent], None] = None,
-        min_duration_seconds: float = 1.0
+        min_duration_seconds: float = 1.0,
+        session_id_provider: Callable[[], Optional[int]] = None
     ):
         """
         Args:
             poll_interval: How often to check for focus changes (seconds)
             on_focus_change: Callback(old_window, new_window) on focus change
             min_duration_seconds: Ignore focus events shorter than this
+            session_id_provider: Callback that returns current session_id (captured at focus start)
         """
         self.poll_interval = poll_interval
         self.on_focus_change = on_focus_change
         self.min_duration = min_duration_seconds
+        self.session_id_provider = session_id_provider
 
         self._running = False
         self._thread = None
@@ -87,6 +91,33 @@ class WindowWatcher:
         """Get currently focused window (ongoing, no end_time yet)"""
         with self._lock:
             return self._current_window
+
+    def flush_current_event(self) -> Optional[WindowFocusEvent]:
+        """End the current focus event and return it (for AFK transitions).
+
+        This closes out the current window focus event without requiring a new
+        window to take focus. Used when user goes AFK - we want to save the
+        focus event with accurate duration (not including AFK time).
+
+        Returns:
+            The completed focus event if it met min_duration, None otherwise.
+            The internal current_window is reset to None.
+        """
+        now = datetime.now()
+        completed_event = None
+
+        with self._lock:
+            if self._current_window:
+                self._current_window.end_time = now
+
+                # Only return if duration >= minimum
+                if self._current_window.duration_seconds >= self.min_duration:
+                    completed_event = self._current_window
+
+                # Clear current window - will be re-created when user becomes active
+                self._current_window = None
+
+        return completed_event
 
     def _watch_loop(self):
         """Main polling loop"""
@@ -181,6 +212,14 @@ class WindowWatcher:
         """Handle a window focus change"""
         now = datetime.now()
 
+        # Capture session_id at focus START time (not when event is saved)
+        current_session_id = None
+        if self.session_id_provider:
+            try:
+                current_session_id = self.session_id_provider()
+            except Exception as e:
+                logger.debug(f"Failed to get session_id: {e}")
+
         with self._lock:
             old_window = self._current_window
 
@@ -192,13 +231,14 @@ class WindowWatcher:
                 if old_window.duration_seconds < self.min_duration:
                     old_window = None
 
-            # Create new window event
+            # Create new window event with session_id captured NOW
             self._current_window = WindowFocusEvent(
                 window_title=new_window['window_title'],
                 app_name=new_window['app_name'],
                 window_class=new_window['window_class'],
                 start_time=now,
-                window_pid=new_window.get('window_pid')
+                window_pid=new_window.get('window_pid'),
+                session_id=current_session_id
             )
 
         # Fire callback outside lock

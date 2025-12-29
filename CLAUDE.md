@@ -1,3 +1,22 @@
+<!-- OPENSPEC:START -->
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
 # Activity Tracker MVP
 
 ## Session Start Instructions
@@ -423,6 +442,26 @@ activity-tracker/
   - Before: Code 78.6% focus → 25% sampled, Chrome 21.3% → 75% sampled (completely wrong)
   - After: Code 78.6% focus → 80% sampled, Chrome 21.3% → 20% sampled (diff: +1.4%, -1.3%)
 - **Analysis tooling**: Added database analysis queries to compare focus time vs screenshot sampling distribution
+
+### 2025-12-29 - Phase 15: AFK Edge Case Fixes
+- **Focus events now end when going AFK** (Finding 2):
+  - Added `flush_current_event()` to WindowWatcher that ends and returns the current focus event
+  - `_handle_afk()` now calls `flush_current_event()` before ending session
+  - Focus durations no longer include AFK time (previously events kept accumulating)
+- **Session ID captured at focus start** (Finding 3):
+  - Added `session_id` field to `WindowFocusEvent` dataclass
+  - WindowWatcher now takes `session_id_provider` callback to capture session at focus start
+  - Fixes bug where focus events spanning AFK boundaries got wrong session_id
+- **Focus queries filter out AFK periods** (Finding 4):
+  - Added `require_session` parameter to `get_focus_events_in_range()` and `get_focus_events_overlapping_range()`
+  - Summarization and reports now use `require_session=True` to exclude NULL session_id events
+- **Better daemon restart detection** (Finding 6):
+  - If last screenshot was >30s ago, treat session as stale (daemon was down)
+  - Previously could incorrectly resume session if daemon crashed during AFK
+- **Immediate AFK→active transition** (Finding 7):
+  - AFK watcher now fires `on_active()` immediately on first input event
+  - Previously waited up to 5s for poll loop, causing race condition with window watcher
+  - Ensures new session starts before window watcher creates focus events
 
 ## Future Improvements
 - **Database normalization**: Unify `threshold_summaries` and `daily_summaries` into single `summaries` table with type field (threshold, hourly, daily, weekly, custom), plus separate `prompts` table for API request storage. Supports hierarchical relationships (daily→hourly→threshold).

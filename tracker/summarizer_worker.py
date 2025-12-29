@@ -389,8 +389,10 @@ class SummarizerWorker:
         screenshots = self.storage.get_screenshots_in_range(start_time, end_time)
         screenshots = sorted(screenshots, key=lambda s: s['timestamp'])
 
-        # Get focus events for the time range (always available)
-        focus_events = self.storage.get_focus_events_overlapping_range(start_time, end_time)
+        # Get focus events for the time range (exclude AFK periods with NULL session_id)
+        focus_events = self.storage.get_focus_events_overlapping_range(
+            start_time, end_time, require_session=True
+        )
         focus_events = self._clip_focus_event_durations(focus_events, start_time, end_time)
 
         # Skip if there's nothing to summarize
@@ -415,7 +417,7 @@ class SummarizerWorker:
 
         # Generate summary
         try:
-            summary, inference_ms, prompt_text, screenshot_ids_used, explanation, confidence = self.summarizer.summarize_session(
+            summary, inference_ms, prompt_text, screenshot_ids_used, explanation, tags, confidence = self.summarizer.summarize_session(
                 screenshots=screenshots,
                 ocr_texts=ocr_texts,
                 previous_summary=previous_summary,
@@ -452,6 +454,7 @@ class SummarizerWorker:
             inference_ms=inference_ms,
             prompt_text=prompt_text,
             explanation=explanation,
+            tags=tags,
             confidence=confidence,
         )
 
@@ -493,7 +496,7 @@ class SummarizerWorker:
 
         # Generate summary
         try:
-            summary, inference_ms, prompt_text, screenshot_ids_used, explanation, confidence = self.summarizer.summarize_session(
+            summary, inference_ms, prompt_text, screenshot_ids_used, explanation, tags, confidence = self.summarizer.summarize_session(
                 screenshots=screenshots,
                 ocr_texts=ocr_texts,
                 previous_summary=previous_summary,
@@ -535,6 +538,7 @@ class SummarizerWorker:
             inference_ms=inference_ms,
             prompt_text=prompt_text,
             explanation=explanation,
+            tags=tags,
             confidence=confidence,
         )
 
@@ -578,7 +582,7 @@ class SummarizerWorker:
         # Don't use previous summary for regeneration
         start_time = time.time()
         try:
-            summary, inference_ms, prompt_text, _, explanation, confidence = self.summarizer.summarize_session(
+            summary, inference_ms, prompt_text, _, explanation, tags, confidence = self.summarizer.summarize_session(
                 screenshots=screenshots,
                 ocr_texts=ocr_texts,
                 previous_summary=None,
@@ -620,6 +624,7 @@ class SummarizerWorker:
             regenerated_from=root_id,
             prompt_text=prompt_text,
             explanation=explanation,
+            tags=tags,
             confidence=confidence,
         )
 
@@ -695,8 +700,10 @@ class SummarizerWorker:
             start_dt = datetime.fromtimestamp(start_ts)
             end_dt = datetime.fromtimestamp(end_ts)
 
-            # Get focus events that overlap with the range
-            focus_events = self.storage.get_focus_events_overlapping_range(start_dt, end_dt)
+            # Get focus events that overlap with the range (exclude AFK periods)
+            focus_events = self.storage.get_focus_events_overlapping_range(
+                start_dt, end_dt, require_session=True
+            )
 
             # Clip durations to the actual query range
             clipped_events = self._clip_focus_event_durations(

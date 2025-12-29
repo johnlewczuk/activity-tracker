@@ -154,7 +154,8 @@ class ActivityDaemon:
         self.window_watcher = WindowWatcher(
             poll_interval=1.0,
             on_focus_change=self._handle_focus_change,
-            min_duration_seconds=self.config.config.tracking.min_focus_duration
+            min_duration_seconds=self.config.config.tracking.min_focus_duration,
+            session_id_provider=lambda: self.current_session_id
         )
         self.last_capture_time = datetime.now()
 
@@ -222,14 +223,52 @@ class ActivityDaemon:
     def _handle_afk(self):
         """Called when user goes AFK.
 
-        Ends the current session for analytics tracking. Summarization is now
-        handled by the threshold-based SummarizerWorker, not AFK events.
+        Ends the current session and flushes the current focus event so that
+        focus durations don't include AFK time. Summarization is handled by
+        the threshold-based SummarizerWorker, not AFK events.
         """
+        # Flush current focus event BEFORE ending session (so it has correct session_id)
+        flushed_event = self.window_watcher.flush_current_event()
+        if flushed_event:
+            self._save_focus_event(flushed_event)
+
         if self.current_session_id:
             session = self.session_manager.end_session(self.current_session_id)
             if session:  # Was long enough
                 self.log(f"Ended session {self.current_session_id}, duration: {session.get('duration_seconds', 0) // 60}m")
             self.current_session_id = None
+
+    def _save_focus_event(self, event: WindowFocusEvent, next_app: str = None):
+        """Save a focus event to storage with terminal introspection.
+
+        Args:
+            event: The completed focus event to save
+            next_app: Name of the next app (for logging), or None if AFK
+        """
+        # Get terminal context if this was a terminal window
+        terminal_context_json = None
+        terminal_info = ""
+        if is_terminal_app(event.app_name) and event.window_pid:
+            context = get_terminal_context(event.window_pid)
+            if context:
+                terminal_context_json = context.to_json()
+                terminal_info = f" [{context.format_short()}]"
+
+        # Use session_id from the event (captured at focus start)
+        self.storage.save_focus_event(
+            window_title=event.window_title,
+            app_name=event.app_name,
+            window_class=event.window_class,
+            start_time=event.start_time,
+            end_time=event.end_time,
+            session_id=event.session_id,
+            terminal_context=terminal_context_json
+        )
+
+        if next_app:
+            self.log(f"Focus: {event.app_name}{terminal_info} ({event.duration_seconds:.1f}s) -> {next_app}")
+        else:
+            self.log(f"Focus: {event.app_name}{terminal_info} ({event.duration_seconds:.1f}s) -> AFK")
 
     def _handle_focus_change(self, old_window: WindowFocusEvent, new_window: WindowFocusEvent):
         """Called when window focus changes - save completed focus event.
@@ -238,27 +277,7 @@ class ActivityDaemon:
             old_window: The window that lost focus (with end_time set)
             new_window: The window that gained focus
         """
-        # Get terminal context if this was a terminal window
-        terminal_context_json = None
-        terminal_info = ""
-        if is_terminal_app(old_window.app_name) and old_window.window_pid:
-            context = get_terminal_context(old_window.window_pid)
-            if context:
-                terminal_context_json = context.to_json()
-                terminal_info = f" [{context.format_short()}]"
-
-        self.storage.save_focus_event(
-            window_title=old_window.window_title,
-            app_name=old_window.app_name,
-            window_class=old_window.window_class,
-            start_time=old_window.start_time,
-            end_time=old_window.end_time,
-            session_id=self.current_session_id,
-            terminal_context=terminal_context_json
-        )
-        self.log(
-            f"Focus: {old_window.app_name}{terminal_info} ({old_window.duration_seconds:.1f}s) -> {new_window.app_name}"
-        )
+        self._save_focus_event(old_window, new_window.app_name)
 
     def _summarize_session(self, session: dict):
         """Background summarization of completed session.
@@ -781,14 +800,21 @@ class ActivityDaemon:
             if last_ts:
                 # Check if last activity was within AFK timeout
                 seconds_since_last = int(time.time()) - last_ts
-                if seconds_since_last < self.afk_watcher.timeout:
-                    # Resume the session - last activity was recent enough
+
+                # Also check if daemon was down for significant time (> 30s)
+                # If daemon was down, user may have gone AFK while we weren't watching
+                session_start_ts = active_session.get("start_time")
+                daemon_likely_down = seconds_since_last > 30  # No screenshot for 30s suggests daemon was down
+
+                if seconds_since_last < self.afk_watcher.timeout and not daemon_likely_down:
+                    # Resume the session - last activity was very recent (daemon just restarted quickly)
                     resumed_session = self.session_manager.resume_active_session()
                     self.current_session_id = resumed_session
                     self.log(f"Resumed active session {resumed_session} (last activity {seconds_since_last}s ago)")
                 else:
-                    # End the old session (was AFK) and start fresh
-                    self.log(f"Previous session {session_id} stale ({seconds_since_last}s since last activity)")
+                    # End the old session - was AFK or daemon was down too long
+                    reason = "daemon downtime" if daemon_likely_down else "AFK timeout"
+                    self.log(f"Previous session {session_id} stale ({seconds_since_last}s since last activity, {reason})")
                     session = self.session_manager.end_session(session_id)
                     if session and self.auto_summarize:
                         # Summarize the old session in background
@@ -797,7 +823,7 @@ class ActivityDaemon:
                             args=(session,),
                             daemon=True
                         ).start()
-                    # Start new session
+                    # Start a fresh session
                     self.current_session_id = self.session_manager.start_session()
                     self.log(f"Started new session {self.current_session_id}")
             else:

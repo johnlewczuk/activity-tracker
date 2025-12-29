@@ -112,9 +112,27 @@ class AFKWatcher:
             return time.time() - self._last_activity
 
     def _on_input_event(self, *args, **kwargs):
-        """Called on any keyboard or mouse event."""
+        """Called on any keyboard or mouse event.
+
+        Also immediately fires on_active callback if transitioning from AFK.
+        This ensures the daemon starts a new session before the window watcher
+        can create focus events, avoiding NULL session_id events.
+        """
+        fire_active = False
         with self._lock:
             self._last_activity = time.time()
+            # Immediately transition to active if we were AFK
+            if self._is_afk:
+                self._is_afk = False
+                fire_active = True
+                logger.info("User became active (immediate detection)")
+
+        # Fire callback outside lock to avoid deadlocks
+        if fire_active and self.on_active:
+            try:
+                self.on_active()
+            except Exception as e:
+                logger.error(f"on_active callback error: {e}")
 
     def _poll_loop(self):
         """
