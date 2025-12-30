@@ -701,30 +701,7 @@
             </div>
         </div>
 
-        <!-- Saved Reports (cached daily reports) -->
-        <div class="section" id="saved-reports-section">
-            <h2>Saved Reports</h2>
-            <p class="section-desc">Previously generated daily reports. Click to view and export.</p>
-            <div id="saved-reports-list">
-                <div class="empty-state" id="saved-empty">
-                    <div class="empty-state-icon">📊</div>
-                    <p>No saved reports yet. Generate a report to save it.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Report History (exported files) -->
-        <div class="section" id="history-section">
-            <h2>Recent Exports</h2>
-            <div id="history-list">
-                <div class="empty-state" id="history-empty">
-                    <div class="empty-state-icon">📁</div>
-                    <p>No exported reports yet</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Report Display -->
+        <!-- Report Display (moved up for better UX) -->
         <div class="report-container" id="report-container" style="display: none;">
             <div class="report-header">
                 <div>
@@ -732,10 +709,10 @@
                     <div class="report-meta" id="report-meta"></div>
                 </div>
                 <div class="report-actions">
-                    <button class="export-btn" data-format="markdown">Markdown</button>
-                    <button class="export-btn" data-format="html">HTML</button>
-                    <button class="export-btn" data-format="pdf">PDF</button>
-                    <button class="export-btn" data-format="json">JSON</button>
+                    <button class="export-btn" data-format="markdown">📄 Markdown</button>
+                    <button class="export-btn" data-format="html">🌐 HTML</button>
+                    <button class="export-btn" data-format="pdf">📑 PDF</button>
+                    <button class="export-btn" data-format="json">📊 JSON</button>
                 </div>
             </div>
 
@@ -755,6 +732,29 @@
             <div class="screenshots-section" id="screenshots-section" style="display: none;">
                 <h3>Key Screenshots</h3>
                 <div class="screenshot-grid" id="screenshot-grid"></div>
+            </div>
+        </div>
+
+        <!-- Saved Reports (cached daily reports) -->
+        <div class="section" id="saved-reports-section">
+            <h2>Daily Summaries</h2>
+            <p class="section-desc">Auto-generated daily reports from AI summaries. Click to view and export.</p>
+            <div id="saved-reports-list">
+                <div class="empty-state" id="saved-empty">
+                    <div class="empty-state-icon">📊</div>
+                    <p>No daily summaries yet. These are auto-generated from your activity data.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report History (exported files) -->
+        <div class="section" id="history-section">
+            <h2>Recent Exports</h2>
+            <div id="history-list">
+                <div class="empty-state" id="history-empty">
+                    <div class="empty-state-icon">📁</div>
+                    <p>No exported reports yet</p>
+                </div>
             </div>
         </div>
 
@@ -891,6 +891,14 @@
             }
 
             document.getElementById('report-container').style.display = 'block';
+
+            // Scroll to report with smooth animation
+            setTimeout(() => {
+                document.getElementById('report-container').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }, 100);
         }
 
         // Export report (uses already-generated data - instant!)
