@@ -77,12 +77,9 @@ class SummarizerWorker:
                 max_samples=cfg.max_samples,
                 sample_interval_minutes=cfg.sample_interval_minutes,
                 focus_weighted_sampling=cfg.focus_weighted_sampling,
-                # Use individual content flags (summarization_mode is deprecated)
                 include_focus_context=getattr(cfg, 'include_focus_context', True),
                 include_screenshots=getattr(cfg, 'include_screenshots', True),
                 include_ocr=getattr(cfg, 'include_ocr', True),
-                # Two-stage summarization for better time accuracy
-                two_stage_summarization=getattr(cfg, 'two_stage_summarization', True),
             )
             self._summarizer_model = current_model
         return self._summarizer

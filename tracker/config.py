@@ -97,9 +97,6 @@ class SummarizationConfig:
         include_previous_summary: Set by quality_preset (context continuity)
         focus_weighted_sampling: Set by quality_preset (weight by focus time)
         sample_interval_minutes: Computed from frequency (target interval between samples)
-
-    Legacy (kept for backward compatibility):
-        summarization_mode: Deprecated - use include_* flags instead
     """
     # User-facing settings
     enabled: bool = True
@@ -122,10 +119,6 @@ class SummarizationConfig:
     include_previous_summary: bool = True  # Set by preset: quick=False, balanced/thorough=True
     focus_weighted_sampling: bool = True   # Set by preset: quick=False, balanced/thorough=True
     sample_interval_minutes: int = 10      # Computed from frequency
-    two_stage_summarization: bool = True   # Stage 1: describe screenshots, Stage 2: summarize with time data
-
-    # Legacy (backward compatibility)
-    summarization_mode: str = "ocr_and_screenshots"  # Deprecated
 
 
 @dataclass

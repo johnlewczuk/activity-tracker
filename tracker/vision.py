@@ -94,14 +94,10 @@ class HybridSummarizer:
         max_samples: int = 10,
         sample_interval_minutes: int = 10,
         focus_weighted_sampling: bool = True,
-        # New content mode flags (multi-select)
+        # Content mode flags (multi-select)
         include_focus_context: bool = True,
         include_screenshots: bool = True,
         include_ocr: bool = True,
-        # Two-stage summarization (disabled by default - single-stage with metadata is more accurate)
-        two_stage_summarization: bool = False,
-        # Legacy (backward compatibility)
-        summarization_mode: str = None,
     ):
         """
         Initialize the HybridSummarizer.
@@ -116,9 +112,6 @@ class HybridSummarizer:
             include_focus_context: Include window titles and duration info (default True).
             include_screenshots: Include screenshot images (default True).
             include_ocr: Include OCR text extraction (default True).
-            two_stage_summarization: Use two-stage approach - describe screenshots first,
-                then summarize with time data. Improves time accuracy (default True).
-            summarization_mode: Deprecated - use include_* flags instead.
         """
         self.model = model
         self.timeout = timeout
@@ -126,17 +119,9 @@ class HybridSummarizer:
         self.max_samples = max_samples
         self.sample_interval_minutes = sample_interval_minutes
         self.focus_weighted_sampling = focus_weighted_sampling
-        self.two_stage_summarization = two_stage_summarization
-
-        # Handle legacy summarization_mode for backward compatibility
-        if summarization_mode:
-            self.include_screenshots = summarization_mode != "ocr_only"
-            self.include_ocr = summarization_mode != "screenshots_only"
-            self.include_focus_context = True  # Always include focus context in legacy mode
-        else:
-            self.include_focus_context = include_focus_context
-            self.include_screenshots = include_screenshots
-            self.include_ocr = include_ocr
+        self.include_focus_context = include_focus_context
+        self.include_screenshots = include_screenshots
+        self.include_ocr = include_ocr
 
     def _call_ollama_api(
         self,
@@ -201,147 +186,6 @@ class HybridSummarizer:
             inference_time = time.time() - start_time
             logger.error(f"LLM inference failed after {inference_time:.2f}s: {e}")
             raise RuntimeError(f"Ollama inference failed: {e}") from e
-
-    def _describe_screenshot(self, image_b64: str, app_name: str = None) -> str:
-        """
-        Stage 1 of two-stage summarization: Describe a single screenshot.
-
-        Gets a brief text description of what's visible in the screenshot,
-        without any time/focus context. This description is later combined
-        with time breakdown data for more accurate summarization.
-
-        Args:
-            image_b64: Base64-encoded image.
-            app_name: Optional app name for context (e.g., "Chrome", "Tilix").
-
-        Returns:
-            Brief text description of the screenshot content.
-        """
-        context = f" (captured from {app_name})" if app_name else ""
-        prompt = (
-            f"Describe this screenshot{context} in ONE detailed sentence. "
-            "Include:\n"
-            "- Window title from the title bar (quote it exactly if readable)\n"
-            "- What type of content is shown (code, webpage, document, settings, etc.)\n"
-            "- Any clearly readable text, file names, or UI elements\n"
-            "IMPORTANT: Only include details you can actually see. "
-            "If something is blurry or unclear, describe it generally rather than guessing."
-        )
-
-        try:
-            response = self._call_ollama_api(prompt, [image_b64])
-            # Clean up common LLM artifacts
-            response = response.strip()
-            # Remove model artifacts like <start_of_image>, </end_of_turn>, etc.
-            for artifact in ['<start_of_image>', '</end_of_turn>', '<end_of_turn>',
-                           'captured from', 'in ONE sentence', 'RULES:']:
-                if artifact in response:
-                    response = response.split(artifact)[0].strip()
-            # Truncate long responses
-            return response[:200] if response else "(description unavailable)"
-        except Exception as e:
-            logger.warning(f"Failed to describe screenshot: {e}")
-            return f"[{app_name or 'Unknown app'}] (description unavailable)"
-
-    def _describe_screenshots_batch(
-        self,
-        sampled_screenshots: list[dict],
-        images_base64: list[str],
-    ) -> list[str]:
-        """
-        Stage 1: Get text descriptions for all sampled screenshots.
-
-        Args:
-            sampled_screenshots: List of screenshot dicts with app_name.
-            images_base64: List of base64-encoded images (same order).
-
-        Returns:
-            List of text descriptions for each screenshot.
-        """
-        descriptions = []
-        for i, (screenshot, img_b64) in enumerate(zip(sampled_screenshots, images_base64)):
-            app_name = screenshot.get('app_name', 'Unknown')
-            logger.debug(f"Describing screenshot {i+1}/{len(images_base64)} ({app_name})")
-            desc = self._describe_screenshot(img_b64, app_name)
-            descriptions.append(f"[{app_name}] {desc}")
-        return descriptions
-
-    def _summarize_with_descriptions(
-        self,
-        focus_context: str,
-        screenshot_descriptions: list[str],
-        ocr_section: str = None,
-        previous_summary: str = None,
-    ) -> str:
-        """
-        Stage 2 of two-stage summarization: Text-only summarization.
-
-        Combines time breakdown data with screenshot descriptions (no images)
-        to produce a summary that properly reflects time spent.
-
-        Args:
-            focus_context: Time breakdown string from _build_focus_context.
-            screenshot_descriptions: List of text descriptions from Stage 1.
-            ocr_section: Optional OCR text section.
-            previous_summary: Optional previous summary for context.
-
-        Returns:
-            Raw LLM response (to be parsed by caller).
-        """
-        prompt_parts = [
-            "You are summarizing work activity from screen recordings.",
-            "",
-        ]
-
-        if previous_summary:
-            prompt_parts.append(f"Previous context: {previous_summary}")
-            prompt_parts.append("")
-
-        if focus_context:
-            prompt_parts.append("## Time Breakdown (from focus tracking)")
-            prompt_parts.append(focus_context)
-            prompt_parts.append("")
-
-        if screenshot_descriptions:
-            prompt_parts.append("## What was visible on screen")
-            prompt_parts.extend(f"- {desc}" for desc in screenshot_descriptions)
-            prompt_parts.append("")
-
-        if ocr_section:
-            prompt_parts.append("## Window Content (OCR)")
-            prompt_parts.append(ocr_section)
-            prompt_parts.append("")
-
-        prompt_parts.extend([
-            "Based on the TIME BREAKDOWN and screenshot descriptions, summarize the PRIMARY activities.",
-            "",
-            "CRITICAL RULES:",
-            "- The activity with MOST TIME (marked PRIMARY) should be your main focus",
-            "- ONLY mention what is explicitly stated in the screenshot descriptions",
-            "- Do NOT invent project names, file names, or specific activities not mentioned",
-            "- If descriptions say 'text not readable', use general terms like 'terminal work' or 'browsing'",
-            "- Write naturally - don't quote percentages in the summary",
-            "",
-            "GRAMMAR RULES (important):",
-            "- Start directly with an action verb (e.g., 'Worked on...', 'Reviewed...', 'Edited...')",
-            "- NEVER start with 'was' or 'Was' - wrong: 'was debugging', right: 'Debugging'",
-            "- NEVER use 'The user', 'The developer', 'They', or third-person pronouns",
-            "- NEVER start with 'Primarily' or filler words",
-            "- Good examples: 'Edited Python code...', 'Reviewed pull requests...', 'Configured Docker...'",
-            "",
-            "Your response MUST follow this exact format:",
-            "",
-            "SUMMARY: [1-2 sentences, max 30 words describing the main activities]",
-            "",
-            "EXPLANATION: [What you observed that led to this summary]",
-            "",
-            "TAGS: [List of tags for categorization]",
-            "",
-            "CONFIDENCE: [0.0 to 1.0 - use LOW confidence if descriptions were vague]",
-        ])
-
-        prompt = '\n'.join(prompt_parts)
-        return self._call_ollama_api(prompt)  # No images - text only
 
     def summarize_hour(self, screenshot_paths: list[str]) -> str:
         """
@@ -591,54 +435,19 @@ class HybridSummarizer:
         # Format screenshot IDs used (for UI display)
         screenshot_ids_str = ", ".join(str(sid) for sid in screenshot_ids_used) if screenshot_ids_used else "none"
 
-        # Decide between two-stage and single-stage summarization
-        use_two_stage = (
-            self.two_stage_summarization
-            and images_base64
-            and focus_context
+        # Build API request info for debugging/display
+        api_request_info = (
+            f"Model: {self.model}\n"
+            f"Method: Single-stage (images + text)\n"
+            f"Content: {', '.join(content_mode)}\n"
+            f"Images: {len(images_base64)} base64-encoded JPEG images (max 1024px)\n"
+            f"Screenshot IDs used: [{screenshot_ids_str}]\n"
+            f"Endpoint: {self.ollama_host}/api/chat\n\n"
+            f"Prompt:\n{prompt}"
         )
 
-        if use_two_stage:
-            # TWO-STAGE SUMMARIZATION
-            # Stage 1: Describe each screenshot (with images)
-            logger.info(f"Two-stage summarization: Stage 1 - describing {len(images_base64)} screenshots")
-            screenshot_descriptions = self._describe_screenshots_batch(sampled, images_base64)
-
-            # Stage 2: Summarize with text only (no images)
-            logger.info("Two-stage summarization: Stage 2 - text-only summarization")
-            response = self._summarize_with_descriptions(
-                focus_context=focus_context,
-                screenshot_descriptions=screenshot_descriptions,
-                ocr_section=ocr_section if ocr_section else None,
-                previous_summary=previous_summary,
-            )
-
-            # Build API request info showing two-stage approach
-            stage1_desc = "\n".join(f"  - {desc}" for desc in screenshot_descriptions)
-            api_request_info = (
-                f"Model: {self.model}\n"
-                f"Method: Two-stage summarization\n"
-                f"Content: {', '.join(content_mode)}\n"
-                f"Screenshot IDs used: [{screenshot_ids_str}]\n"
-                f"Endpoint: {self.ollama_host}/api/chat\n\n"
-                f"Sampling Rationale:\n{sampling_rationale}\n\n"
-                f"Stage 1 - Screenshot Descriptions:\n{stage1_desc}\n\n"
-                f"Stage 2 - Focus Context:\n{focus_context}"
-            )
-        else:
-            # SINGLE-STAGE SUMMARIZATION (legacy)
-            api_request_info = (
-                f"Model: {self.model}\n"
-                f"Method: Single-stage (images + text)\n"
-                f"Content: {', '.join(content_mode)}\n"
-                f"Images: {len(images_base64)} base64-encoded JPEG images (max 1024px)\n"
-                f"Screenshot IDs used: [{screenshot_ids_str}]\n"
-                f"Endpoint: {self.ollama_host}/api/chat\n\n"
-                f"Prompt:\n{prompt}"
-            )
-
-            # Call LLM (pass images only if we have them)
-            response = self._call_ollama_api(prompt, images_base64 if images_base64 else None)
+        # Call LLM (pass images only if we have them)
+        response = self._call_ollama_api(prompt, images_base64 if images_base64 else None)
 
         inference_ms = int((time.time() - start_time) * 1000)
 
