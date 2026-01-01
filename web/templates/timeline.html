@@ -198,6 +198,125 @@
             text-align: center;
         }
 
+        /* View toggle (Month/Week) */
+        .view-toggle {
+            display: flex;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .view-btn {
+            padding: 5px 10px;
+            border: none;
+            background: var(--surface);
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .view-btn:first-child {
+            border-right: 1px solid var(--border);
+        }
+
+        .view-btn:hover {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        .view-btn.active {
+            background: var(--accent);
+            color: var(--text-inverse);
+        }
+
+        /* Week View Panel */
+        .week-view-panel {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+
+        .week-days-strip {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+        }
+
+        .week-day-column {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            min-height: 100px;
+        }
+
+        .week-day-column:hover {
+            border-color: var(--accent);
+            background: var(--surface);
+        }
+
+        .week-day-column.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent);
+            background: var(--surface);
+        }
+
+        .week-day-column.today .week-day-date {
+            color: var(--accent);
+        }
+
+        .week-day-header {
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        .week-day-name {
+            font-size: 0.6rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .week-day-date {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .week-mini-timeline {
+            height: 50px;
+            background: var(--surface);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .mini-activity-bar {
+            position: absolute;
+            height: 100%;
+            opacity: 0.7;
+        }
+
+        .week-day-stats {
+            margin-top: 6px;
+            text-align: center;
+            font-size: 0.6rem;
+            color: var(--muted);
+        }
+
+        .no-activity-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: 0.6rem;
+            color: var(--muted);
+        }
+
         /* Main layout */
         .timeline-layout {
             display: grid;
@@ -363,6 +482,33 @@
             flex: 1;
             text-align: center;
             margin: 0;
+        }
+
+        .date-picker-input {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--surface);
+            color: var(--text);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .date-picker-input:hover {
+            border-color: var(--accent);
+        }
+
+        .date-picker-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+        }
+
+        /* Style the calendar picker icon for dark mode */
+        .date-picker-input::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+            cursor: pointer;
         }
 
         .detail-stats {
@@ -1521,6 +1667,76 @@
             color: var(--muted);
         }
 
+        .timeline-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        /* Summarization status indicator */
+        .summarization-status {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 0.7rem;
+            color: var(--muted);
+            padding: 0 12px;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            margin: 0 8px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .status-item svg {
+            opacity: 0.6;
+        }
+
+        .status-badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+        }
+
+        .status-badge.active {
+            background: var(--accent);
+            color: var(--text-inverse);
+            animation: pulse 2s infinite;
+        }
+
+        .status-badge.idle {
+            background: var(--surface);
+            color: var(--muted);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .pending-badge {
+            background: var(--accent);
+            color: var(--text-inverse);
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.65rem;
+            min-width: 16px;
+            text-align: center;
+        }
+
+        .pending-badge.zero {
+            background: var(--surface);
+            color: var(--muted);
+        }
+
         .timeline-controls {
             display: flex;
             gap: 8px;
@@ -1538,6 +1754,38 @@
         }
 
         .timeline-controls button:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--text-inverse);
+        }
+
+        /* Time presets */
+        .time-presets {
+            display: flex;
+            gap: 4px;
+            margin-right: 8px;
+            padding-right: 8px;
+            border-right: 1px solid var(--border);
+        }
+
+        .preset-btn {
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .preset-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--text-inverse);
+        }
+
+        .preset-btn.active {
             background: var(--accent);
             border-color: var(--accent);
             color: var(--text-inverse);
@@ -1735,6 +1983,154 @@
         /* Lane colors */
         .lane-event.session { background: #3fb950; }
         .lane-event.afk { background: #484f58; }
+
+        /* Screenshot markers overlaid on activity lane */
+        .lane-screenshots {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            pointer-events: none;
+        }
+
+        .screenshot-marker {
+            position: absolute;
+            width: 3px;
+            top: 2px;
+            bottom: 2px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 1px;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: background 0.15s, width 0.15s;
+        }
+
+        .screenshot-marker:hover {
+            background: rgba(255, 255, 255, 0.95);
+            width: 5px;
+            z-index: 20;
+        }
+
+        /* Screenshot Filmstrip */
+        .filmstrip-section {
+            padding: 12px 15px;
+            background: var(--surface-2);
+            border-top: 1px solid var(--border);
+        }
+
+        .filmstrip-section.hidden {
+            display: none;
+        }
+
+        .filmstrip-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .filmstrip-header h4 {
+            margin: 0;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .filmstrip-count {
+            font-size: 0.7rem;
+            color: var(--muted);
+            flex: 1;
+        }
+
+        .toggle-filmstrip {
+            padding: 4px 10px;
+            font-size: 0.7rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .toggle-filmstrip:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--text-inverse);
+        }
+
+        .filmstrip-container {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            scroll-behavior: smooth;
+        }
+
+        .filmstrip-container::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .filmstrip-container::-webkit-scrollbar-track {
+            background: var(--surface);
+            border-radius: 3px;
+        }
+
+        .filmstrip-container::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .filmstrip-container::-webkit-scrollbar-thumb:hover {
+            background: var(--muted);
+        }
+
+        .filmstrip-item {
+            flex-shrink: 0;
+            width: 180px;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+
+        .filmstrip-item:hover {
+            transform: scale(1.03);
+        }
+
+        .filmstrip-thumb {
+            width: 180px;
+            height: 108px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 2px solid var(--border);
+            background: var(--surface);
+        }
+
+        .filmstrip-item:hover .filmstrip-thumb {
+            border-color: var(--accent);
+        }
+
+        .filmstrip-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 4px;
+            padding: 0 2px;
+        }
+
+        .filmstrip-time {
+            font-size: 0.7rem;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .filmstrip-app {
+            font-size: 0.65rem;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100px;
+        }
 
         /* AI Summaries Table */
         .summaries-table-wrapper {
@@ -2169,6 +2565,10 @@
             <div class="timeline-layout">
             <div class="calendar-panel">
                 <div class="month-selector">
+                    <div class="view-toggle">
+                        <button class="view-btn active" id="viewMonth" data-view="month">Month</button>
+                        <button class="view-btn" id="viewWeek" data-view="week">Week</button>
+                    </div>
                     <button id="prevMonth" title="Previous month (H key)">←</button>
                     <div class="month-display" id="monthDisplay">Loading...</div>
                     <button id="nextMonth" title="Next month (L key)">→</button>
@@ -2214,6 +2614,11 @@
                     </span>
                 </div>
 
+                <!-- Week View Panel (hidden by default) -->
+                <div id="weekViewPanel" class="week-view-panel" style="display: none;">
+                    <div class="week-days-strip" id="weekDaysStrip"></div>
+                </div>
+
                 <div id="leftChartSection" style="display: none; margin-top: 20px;">
                     <h2>Hourly Activity</h2>
                     <div class="detail-stats" id="detailStats"></div>
@@ -2233,6 +2638,8 @@
                         <button id="prevDayBtn" onclick="navigateDay(-1)" title="Previous day">←</button>
                         <h2 id="selectedDate">Select a day</h2>
                         <button id="nextDayBtn" onclick="navigateDay(1)" title="Next day">→</button>
+                        <input type="date" id="datePickerInput" class="date-picker-input"
+                               title="Jump to date" aria-label="Jump to specific date">
                     </div>
                 </div>
 
@@ -2384,18 +2791,39 @@
             const container = document.getElementById('detailContent');
             const dayStart = new Date(`${dateStr}T00:00:00`).getTime();
 
-            // Reset view to full day
+            // Reset view to full day, then restore saved zoom if available
             state.timeline.viewStart = 0;
             state.timeline.viewEnd = 86400000; // 24 hours in ms
             state.timeline.dayStart = dayStart;
+            loadSavedZoom(); // Restore user's preferred zoom level
 
             // Create timeline HTML
             const timelineHtml = `
                 <div class="horizontal-timeline" id="horizontalTimeline">
                     <div class="timeline-header">
-                        <h3>Activity Timeline</h3>
-                        <span class="timeline-hint">Drag to pan, scroll to zoom</span>
+                        <div class="timeline-header-left">
+                            <h3>Activity Timeline</h3>
+                            <span class="timeline-hint">Drag to pan, scroll to zoom</span>
+                        </div>
+                        <div class="summarization-status" id="summarizationStatus">
+                            <span class="status-item" id="nextRunStatus" title="Next scheduled summarization">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                <span id="nextRunText">--</span>
+                            </span>
+                            <span class="status-item" id="pendingStatus" title="Screenshots waiting for summarization">
+                                <span class="pending-badge" id="pendingCount">0</span> pending
+                            </span>
+                            <span class="status-item" id="workerStatus" title="Summarization worker status">
+                                Worker: <span class="status-badge idle" id="workerBadge">Idle</span>
+                            </span>
+                        </div>
                         <div class="timeline-controls">
+                            <div class="time-presets">
+                                <button class="preset-btn" data-start="6" data-end="12" onclick="applyTimePreset(6, 12)">Morning</button>
+                                <button class="preset-btn" data-start="12" data-end="18" onclick="applyTimePreset(12, 18)">Afternoon</button>
+                                <button class="preset-btn" data-start="18" data-end="24" onclick="applyTimePreset(18, 24)">Evening</button>
+                                <button class="preset-btn" data-start="9" data-end="17" onclick="applyTimePreset(9, 17)">Work</button>
+                            </div>
                             <button class="btn-generate-missing" id="btnGenerateMissing" onclick="triggerSummarization()" title="Generate summaries for unsummarized screenshots on this day">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                                 Generate Missing
@@ -2407,22 +2835,11 @@
                     </div>
                     <div class="timeline-body">
                         <div class="timeline-lanes" id="timelineLanes">
-                            <div class="timeline-lane" data-lane="sessions">
-                                <div class="lane-label">Active Sessions</div>
-                                <div class="lane-content">
-                                    <div class="lane-events" id="laneSessionEvents"></div>
-                                </div>
-                            </div>
-                            <div class="timeline-lane" data-lane="apps">
-                                <div class="lane-label">Applications</div>
+                            <div class="timeline-lane" data-lane="activity">
+                                <div class="lane-label">Activity</div>
                                 <div class="lane-content">
                                     <div class="lane-events" id="laneAppEvents"></div>
-                                </div>
-                            </div>
-                            <div class="timeline-lane" data-lane="screenshots">
-                                <div class="lane-label">Screenshots</div>
-                                <div class="lane-content">
-                                    <div class="lane-events" id="laneScreenshots"></div>
+                                    <div class="lane-screenshots" id="laneScreenshotMarkers"></div>
                                 </div>
                             </div>
                             <div class="timeline-lane" data-lane="summaries">
@@ -2438,6 +2855,14 @@
                                 <div class="axis-ticks" id="axisTicks"></div>
                             </div>
                         </div>
+                    </div>
+                    <div class="filmstrip-section" id="filmstripSection">
+                        <div class="filmstrip-header">
+                            <h4>Screenshots</h4>
+                            <span class="filmstrip-count" id="filmstripCount">0 in view</span>
+                            <button class="toggle-filmstrip" id="toggleFilmstrip" onclick="toggleFilmstrip()">Hide</button>
+                        </div>
+                        <div class="filmstrip-container" id="filmstripContainer"></div>
                     </div>
                 </div>
             `;
@@ -2472,37 +2897,7 @@
                 return (durationMs / viewDuration) * containerWidth;
             };
 
-            // Render sessions lane (active periods)
-            const sessionsContainer = document.getElementById('laneSessionEvents');
-            if (sessionsContainer) {
-                sessionsContainer.innerHTML = '';
-                sessions.forEach(session => {
-                    const startTime = new Date(session.start_time).getTime() - dayStart;
-                    const endTime = session.end_time ? new Date(session.end_time).getTime() - dayStart : Date.now() - dayStart;
-
-                    // Skip if outside view
-                    if (endTime < viewStart || startTime > viewEnd) return;
-
-                    const x = timeToX(Math.max(startTime, viewStart));
-                    const width = durationToWidth(Math.min(endTime, viewEnd) - Math.max(startTime, viewStart));
-
-                    if (width < 1) return;
-
-                    const event = document.createElement('div');
-                    event.className = 'lane-event session';
-                    event.style.left = `${x}px`;
-                    event.style.width = `${width}px`;
-                    event.title = `Session: ${formatDuration((endTime - startTime) / 1000)}`;
-
-                    if (width > 50) {
-                        event.innerHTML = `<span class="lane-event-label">Active</span>`;
-                    }
-
-                    sessionsContainer.appendChild(event);
-                });
-            }
-
-            // Render apps lane (focus events)
+            // Render activity lane (focus events)
             const appsContainer = document.getElementById('laneAppEvents');
             if (appsContainer) {
                 appsContainer.innerHTML = '';
@@ -2541,10 +2936,10 @@
                 });
             }
 
-            // Render screenshots lane
-            const screenshotsContainer = document.getElementById('laneScreenshots');
-            if (screenshotsContainer) {
-                screenshotsContainer.innerHTML = '';
+            // Render screenshot markers (overlaid on activity lane)
+            const screenshotMarkersContainer = document.getElementById('laneScreenshotMarkers');
+            if (screenshotMarkersContainer) {
+                screenshotMarkersContainer.innerHTML = '';
                 screenshots.forEach(screenshot => {
                     const timestamp = screenshot.timestamp * 1000; // Convert to ms
                     const timeMs = timestamp - dayStart;
@@ -2553,20 +2948,17 @@
                     if (timeMs < viewStart || timeMs > viewEnd) return;
 
                     const x = timeToX(timeMs);
-                    const width = Math.max(4, durationToWidth(30000)); // 30sec minimum visual width
 
-                    const el = document.createElement('div');
-                    el.className = 'lane-event';
-                    el.style.left = `${x - width/2}px`;
-                    el.style.width = `${width}px`;
-                    el.style.background = getAppColor(screenshot.app_name);
-                    el.style.cursor = 'pointer';
+                    const marker = document.createElement('div');
+                    marker.className = 'screenshot-marker';
+                    marker.style.left = `${x - 1.5}px`; // Center the 3px marker
+                    marker.dataset.screenshotId = screenshot.id;
 
-                    el.addEventListener('click', () => {
+                    marker.addEventListener('click', () => {
                         window.showModalWithScreenshots(screenshot.id, screenshots);
                     });
 
-                    el.addEventListener('mouseenter', (e) => {
+                    marker.addEventListener('mouseenter', (e) => {
                         showTimelineTooltip(e, {
                             app_name: screenshot.app_name,
                             window_title: screenshot.window_title,
@@ -2574,9 +2966,9 @@
                             duration_seconds: 0
                         }, screenshot.id);
                     });
-                    el.addEventListener('mouseleave', hideTimelineTooltip);
+                    marker.addEventListener('mouseleave', hideTimelineTooltip);
 
-                    screenshotsContainer.appendChild(el);
+                    screenshotMarkersContainer.appendChild(marker);
                 });
             }
 
@@ -2634,6 +3026,12 @@
 
             // Render time axis
             renderTimeAxis();
+
+            // Update filmstrip with screenshots in current view
+            renderFilmstrip();
+
+            // Save zoom state to localStorage
+            saveZoomState();
         }
 
         function renderTimeAxis() {
@@ -2788,7 +3186,321 @@
         function resetTimelineZoom() {
             state.timeline.viewStart = 0;
             state.timeline.viewEnd = 86400000;
+            clearPresetActive();
             updateTimelineView();
+        }
+
+        // Zoom persistence
+        const ZOOM_STORAGE_KEY = 'activity-tracker-timeline-zoom';
+
+        function saveZoomState() {
+            localStorage.setItem(ZOOM_STORAGE_KEY, JSON.stringify({
+                viewStart: state.timeline.viewStart,
+                viewEnd: state.timeline.viewEnd
+            }));
+        }
+
+        function loadSavedZoom() {
+            try {
+                const saved = localStorage.getItem(ZOOM_STORAGE_KEY);
+                if (saved) {
+                    const { viewStart, viewEnd } = JSON.parse(saved);
+                    state.timeline.viewStart = viewStart;
+                    state.timeline.viewEnd = viewEnd;
+                }
+            } catch (e) {
+                console.warn('Failed to load saved zoom state:', e);
+            }
+        }
+
+        // Time presets
+        function applyTimePreset(startHour, endHour) {
+            state.timeline.viewStart = startHour * 3600000; // Hours to ms
+            state.timeline.viewEnd = endHour * 3600000;
+
+            // Update active button
+            clearPresetActive();
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                if (parseInt(btn.dataset.start) === startHour && parseInt(btn.dataset.end) === endHour) {
+                    btn.classList.add('active');
+                }
+            });
+
+            updateTimelineView();
+        }
+
+        function clearPresetActive() {
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        }
+
+        // Summarization status polling
+        let statusPollInterval = null;
+
+        async function updateSummarizationStatus() {
+            try {
+                const [pendingRes, workerRes] = await Promise.all([
+                    fetch('/api/threshold-summaries/pending'),
+                    fetch('/api/threshold-summaries/worker-status')
+                ]);
+
+                const pending = await pendingRes.json();
+                const worker = await workerRes.json();
+
+                // Update pending count
+                const pendingCountEl = document.getElementById('pendingCount');
+                if (pendingCountEl) {
+                    const count = pending.unsummarized_count || 0;
+                    pendingCountEl.textContent = count;
+                    pendingCountEl.classList.toggle('zero', count === 0);
+                }
+
+                // Update next run time
+                const nextRunTextEl = document.getElementById('nextRunText');
+                if (nextRunTextEl && pending.minutes_until_next !== undefined) {
+                    const mins = Math.round(pending.minutes_until_next);
+                    if (mins <= 0) {
+                        nextRunTextEl.textContent = 'Now';
+                    } else if (mins < 60) {
+                        nextRunTextEl.textContent = `${mins}m`;
+                    } else {
+                        const hrs = Math.floor(mins / 60);
+                        const remainMins = mins % 60;
+                        nextRunTextEl.textContent = `${hrs}h ${remainMins}m`;
+                    }
+                }
+
+                // Update worker status
+                const workerBadge = document.getElementById('workerBadge');
+                if (workerBadge) {
+                    if (worker.current_task) {
+                        workerBadge.textContent = 'Active';
+                        workerBadge.className = 'status-badge active';
+                    } else {
+                        workerBadge.textContent = 'Idle';
+                        workerBadge.className = 'status-badge idle';
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to fetch summarization status:', e);
+            }
+        }
+
+        function startStatusPolling() {
+            updateSummarizationStatus();
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+            }
+            statusPollInterval = setInterval(updateSummarizationStatus, 30000); // Poll every 30s
+        }
+
+        function stopStatusPolling() {
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+        }
+
+        // Screenshot Filmstrip
+        let filmstripHidden = false;
+
+        function renderFilmstrip() {
+            const container = document.getElementById('filmstripContainer');
+            const countEl = document.getElementById('filmstripCount');
+            if (!container) return;
+
+            const { viewStart, viewEnd, dayStart, screenshots } = state.timeline;
+            if (!screenshots || screenshots.length === 0) {
+                container.innerHTML = '<div style="color: var(--muted); font-size: 0.75rem; padding: 10px;">No screenshots</div>';
+                if (countEl) countEl.textContent = '0 in view';
+                return;
+            }
+
+            // Filter screenshots to those in the current zoom window
+            const visibleScreenshots = screenshots.filter(s => {
+                const timeMs = (s.timestamp * 1000) - dayStart;
+                return timeMs >= viewStart && timeMs <= viewEnd;
+            });
+
+            if (countEl) countEl.textContent = `${visibleScreenshots.length} in view`;
+
+            if (visibleScreenshots.length === 0) {
+                container.innerHTML = '<div style="color: var(--muted); font-size: 0.75rem; padding: 10px;">No screenshots in current view</div>';
+                return;
+            }
+
+            container.innerHTML = visibleScreenshots.map(s => {
+                const time = new Date(s.timestamp * 1000);
+                const timeStr = time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+                const appName = s.app_name || 'Unknown';
+
+                return `
+                    <div class="filmstrip-item" onclick="window.showModalWithScreenshots(${s.id}, state.timeline.screenshots)">
+                        <img class="filmstrip-thumb" src="/thumbnail/${s.id}" alt="Screenshot at ${timeStr}" loading="lazy">
+                        <div class="filmstrip-meta">
+                            <span class="filmstrip-time">${timeStr}</span>
+                            <span class="filmstrip-app" title="${appName}">${appName}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleFilmstrip() {
+            const section = document.getElementById('filmstripSection');
+            const btn = document.getElementById('toggleFilmstrip');
+            if (!section || !btn) return;
+
+            filmstripHidden = !filmstripHidden;
+            section.classList.toggle('hidden', filmstripHidden);
+            btn.textContent = filmstripHidden ? 'Show' : 'Hide';
+        }
+
+        // Week View
+        state.calendarView = 'month'; // 'month' or 'week'
+
+        function toggleCalendarView(view) {
+            state.calendarView = view;
+
+            // Update toggle button states
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === view);
+            });
+
+            // Show/hide appropriate panels
+            const calendarGrid = document.getElementById('calendarGrid');
+            const calendarLegend = document.querySelector('.calendar-legend');
+            const weekViewPanel = document.getElementById('weekViewPanel');
+
+            if (view === 'week') {
+                if (calendarGrid) calendarGrid.style.display = 'none';
+                if (calendarLegend) calendarLegend.style.display = 'none';
+                if (weekViewPanel) weekViewPanel.style.display = 'block';
+                renderWeekView();
+            } else {
+                if (calendarGrid) calendarGrid.style.display = '';
+                if (calendarLegend) calendarLegend.style.display = '';
+                if (weekViewPanel) weekViewPanel.style.display = 'none';
+            }
+        }
+
+        function getWeekStart(dateStr) {
+            const date = new Date(dateStr + 'T12:00:00');
+            const day = date.getDay(); // 0 = Sunday
+            date.setDate(date.getDate() - day);
+            return date;
+        }
+
+        function getLocalDateString(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        async function renderWeekView() {
+            const strip = document.getElementById('weekDaysStrip');
+            if (!strip) return;
+
+            // Get week containing selected date (or today)
+            const selectedDate = state.selectedDate || getLocalDateString(new Date());
+            const weekStart = getWeekStart(selectedDate);
+            const todayStr = getLocalDateString(new Date());
+
+            const days = [];
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(weekStart);
+                day.setDate(day.getDate() + i);
+                days.push(day);
+            }
+
+            // Show loading state
+            strip.innerHTML = days.map(() => `
+                <div class="week-day-column" style="opacity: 0.5;">
+                    <div class="week-day-header">
+                        <div class="week-day-name">...</div>
+                        <div class="week-day-date">-</div>
+                    </div>
+                    <div class="week-mini-timeline">
+                        <div class="no-activity-message">Loading...</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Fetch activity data for all 7 days in parallel
+            const dayDataPromises = days.map(d => {
+                const dateStr = getLocalDateString(d);
+                return fetch(`/api/analytics/focus/timeline?start=${dateStr}T00:00:00&end=${dateStr}T23:59:59`)
+                    .then(r => r.json())
+                    .catch(() => ({ events: [] }));
+            });
+
+            const dayData = await Promise.all(dayDataPromises);
+
+            // Render week view
+            strip.innerHTML = days.map((day, i) => {
+                const dateStr = getLocalDateString(day);
+                const events = dayData[i].events || [];
+                const isSelected = dateStr === state.selectedDate;
+                const isToday = dateStr === todayStr;
+
+                // Generate mini-timeline bars
+                const miniTimelineHtml = generateMiniTimeline(events);
+
+                // Calculate stats
+                const totalSeconds = events.reduce((sum, e) => sum + (e.duration_seconds || 0), 0);
+                const hours = Math.floor(totalSeconds / 3600);
+                const mins = Math.round((totalSeconds % 3600) / 60);
+                const statsText = totalSeconds > 0 ? `${hours}h ${mins}m` : 'No activity';
+
+                return `
+                    <div class="week-day-column ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}"
+                         onclick="selectDateFromWeek('${dateStr}')" data-date="${dateStr}">
+                        <div class="week-day-header">
+                            <div class="week-day-name">${day.toLocaleDateString('en-US', {weekday: 'short'})}</div>
+                            <div class="week-day-date">${day.getDate()}</div>
+                        </div>
+                        <div class="week-mini-timeline">
+                            ${miniTimelineHtml}
+                        </div>
+                        <div class="week-day-stats">${statsText}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function generateMiniTimeline(events) {
+            if (!events || events.length === 0) {
+                return '<div class="no-activity-message">No activity</div>';
+            }
+
+            return events.map(e => {
+                const start = new Date(e.start_time);
+                const duration = e.duration_seconds || 60;
+                // Position as percentage of day (0-24 hours)
+                const startMinutes = start.getHours() * 60 + start.getMinutes();
+                const startPct = (startMinutes / 1440) * 100;
+                const widthPct = Math.max(0.5, (duration / 86400) * 100);
+                const color = getAppColor(e.app_name);
+
+                return `<div class="mini-activity-bar" style="left:${startPct}%;width:${widthPct}%;background:${color};"></div>`;
+            }).join('');
+        }
+
+        function selectDateFromWeek(dateStr) {
+            // Update week view selection
+            document.querySelectorAll('.week-day-column').forEach(col => {
+                col.classList.toggle('selected', col.dataset.date === dateStr);
+            });
+
+            // Select the date (this will load day data)
+            const [year, month] = dateStr.split('-').map(Number);
+            if (month !== state.currentMonth || year !== state.currentYear) {
+                state.currentMonth = month;
+                state.currentYear = year;
+                loadCalendar().then(() => selectDate(dateStr));
+            } else {
+                selectDate(dateStr);
+            }
         }
 
         function formatDuration(seconds) {
@@ -2879,6 +3591,33 @@
         function setupEventListeners() {
             document.getElementById('prevMonth').addEventListener('click', () => changeMonth(-1));
             document.getElementById('nextMonth').addEventListener('click', () => changeMonth(1));
+
+            // Date picker input handler
+            const datePicker = document.getElementById('datePickerInput');
+            if (datePicker) {
+                datePicker.addEventListener('change', (e) => {
+                    const dateStr = e.target.value;
+                    if (dateStr) {
+                        const [year, month] = dateStr.split('-').map(Number);
+
+                        // Update month view if needed
+                        if (month !== state.currentMonth || year !== state.currentYear) {
+                            state.currentMonth = month;
+                            state.currentYear = year;
+                            loadCalendar().then(() => selectDate(dateStr));
+                        } else {
+                            selectDate(dateStr);
+                        }
+                    }
+                });
+            }
+
+            // View toggle (Month/Week)
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    toggleCalendarView(btn.dataset.view);
+                });
+            });
 
             // Keyboard navigation
             document.addEventListener('keydown', (e) => {
@@ -3078,6 +3817,12 @@
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             document.getElementById('selectedDate').textContent = date.toLocaleDateString('en-US', options);
 
+            // Sync date picker input
+            const datePicker = document.getElementById('datePickerInput');
+            if (datePicker) {
+                datePicker.value = dateStr;
+            }
+
             // Load day data
             await loadDayData(dateStr);
         }
@@ -3149,6 +3894,9 @@
 
                 // Render summaries table with hourly sections
                 renderThresholdSummaries();
+
+                // Start polling for summarization status
+                startStatusPolling();
 
             } catch (error) {
                 console.error('Failed to load day data:', error);
