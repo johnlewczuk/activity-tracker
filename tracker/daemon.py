@@ -24,7 +24,6 @@ Dependencies:
 - tracker.capture: Screenshot capture and hashing
 - tracker.storage: Database storage management
 - xdotool: X11 window information extraction
-- mss, PIL: Screen capture and image processing
 
 Example:
     # Run daemon programmatically
@@ -39,7 +38,6 @@ Example:
 import sys
 import time
 import signal
-import hashlib
 import subprocess
 import argparse
 import threading
@@ -48,9 +46,6 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-
-import mss
-from PIL import Image
 
 # Configure logging for submodules (afk, vision, etc.)
 logging.basicConfig(
@@ -101,7 +96,7 @@ class ActivityDaemon:
         ...     daemon.log("Shutdown requested")
     """
     
-    def __init__(self, enable_web=False, web_port=55555, auto_summarize=True,
+    def __init__(self, enable_web=False, web_port=55555,
                  afk_timeout=180, afk_poll_time=5.0):
         """Initialize the activity daemon with default configuration.
 
@@ -111,7 +106,6 @@ class ActivityDaemon:
         Args:
             enable_web (bool): Whether to start the web server
             web_port (int): Port for the web server (default: 55555)
-            auto_summarize (bool): Whether to auto-summarize sessions on AFK (default True)
             afk_timeout (int): Seconds of inactivity before considered AFK (default 180)
             afk_poll_time (float): How often to check AFK status (default 5.0)
 
@@ -127,8 +121,6 @@ class ActivityDaemon:
         self.web_port = web_port
         self.flask_app = None
         self.web_thread = None
-        self.last_summarized_hour = None
-        self.summarize_thread = None
 
         # Configuration manager
         self.config = get_config_manager()
@@ -255,13 +247,18 @@ class ActivityDaemon:
                 terminal_info = f" [{context.format_short()}]"
 
         # Use session_id from the event (captured at focus start)
+        # Backfill if None but we now have a session (handles AFK->active race condition)
+        session_id = event.session_id
+        if session_id is None and self.current_session_id is not None:
+            session_id = self.current_session_id
+
         self.storage.save_focus_event(
             window_title=event.window_title,
             app_name=event.app_name,
             window_class=event.window_class,
             start_time=event.start_time,
             end_time=event.end_time,
-            session_id=event.session_id,
+            session_id=session_id,
             terminal_context=terminal_context_json
         )
 
@@ -279,191 +276,6 @@ class ActivityDaemon:
         """
         self._save_focus_event(old_window, new_window.app_name)
 
-    def _summarize_session(self, session: dict):
-        """Background summarization of completed session.
-
-        Args:
-            session: Session dict with id, start_time, etc.
-        """
-        try:
-            from .vision import HybridSummarizer
-            from .config import get_config_manager
-
-            config_mgr = get_config_manager()
-            summarizer = HybridSummarizer(
-                model=config_mgr.config.summarization.model,
-                ollama_host=config_mgr.config.summarization.ollama_host,
-            )
-
-            if not summarizer.is_available():
-                self.log("Summarizer not available (check Ollama and Tesseract)")
-                return
-
-            session_id = session["id"]
-
-            # Get screenshots for session
-            screenshots = self.storage.get_session_screenshots(session_id)
-            if len(screenshots) < 2:
-                self.log(f"Session {session_id}: Not enough screenshots for summary")
-                return
-
-            # Process OCR for unique window titles
-            unique_titles = self.storage.get_unique_window_titles_for_session(session_id)
-            ocr_texts = []
-
-            for title in unique_titles:
-                # Check cache first
-                cached = self.storage.get_cached_ocr(session_id, title)
-                if cached is not None:
-                    ocr_texts.append({"window_title": title, "ocr_text": cached})
-                    continue
-
-                # Find a screenshot with this title
-                for s in screenshots:
-                    if s.get("window_title") == title:
-                        try:
-                            # Use cropped version for better OCR accuracy
-                            cropped_path = summarizer.get_cropped_path(s)
-                            ocr_text = summarizer.extract_ocr(cropped_path)
-                            self.storage.cache_ocr(session_id, title, ocr_text, s["id"])
-                            ocr_texts.append({"window_title": title, "ocr_text": ocr_text})
-                        except Exception as e:
-                            self.log(f"OCR failed for '{title}': {e}")
-                        break
-
-            # Get previous session summary for context
-            recent_summaries = self.storage.get_recent_summaries(1)
-            previous_summary = recent_summaries[0] if recent_summaries else None
-
-            # Generate summary
-            self.log(f"Generating summary for session {session_id}...")
-            summary, inference_ms, prompt_text, screenshot_ids_used = summarizer.summarize_session(
-                screenshots=screenshots,
-                ocr_texts=ocr_texts,
-                previous_summary=previous_summary,
-            )
-
-            # Save to database
-            self.storage.save_session_summary(
-                session_id=session_id,
-                summary=summary,
-                model=summarizer.model,
-                inference_ms=inference_ms,
-                prompt_text=prompt_text,
-                screenshot_ids_used=screenshot_ids_used,
-            )
-
-            self.log(f"Session {session_id}: {summary}")
-
-        except Exception as e:
-            self.log(f"Summarization error for session {session.get('id')}: {e}")
-
-    def _should_trigger_summarization(self) -> tuple[bool, int]:
-        """Check if we should trigger hourly summarization.
-
-        Summarization is triggered at :05 past each hour for the previous hour.
-
-        Returns:
-            tuple[bool, int]: (should_summarize, hour_to_summarize)
-        """
-        now = datetime.now()
-
-        # Only trigger at :05 past the hour (with some tolerance)
-        if now.minute < 5 or now.minute > 10:
-            return False, -1
-
-        # Calculate the previous hour to summarize
-        previous_hour = now.hour - 1
-        if previous_hour < 0:
-            previous_hour = 23
-
-        # Don't re-summarize the same hour
-        if self.last_summarized_hour == (now.date(), previous_hour):
-            return False, -1
-
-        return True, previous_hour
-
-    def _run_summarization(self, date_str: str, hour: int):
-        """Run summarization for a specific hour in background thread."""
-        try:
-            from .vision import HybridSummarizer
-            from .config import get_config_manager
-
-            config_mgr = get_config_manager()
-            summarizer = HybridSummarizer(
-                model=config_mgr.config.summarization.model,
-                ollama_host=config_mgr.config.summarization.ollama_host,
-            )
-
-            if not summarizer.is_available():
-                self.log("Summarizer not available (check Ollama and Tesseract)")
-                return
-
-            # Get screenshots for the hour
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-            start_ts = int(date_obj.timestamp()) + hour * 3600
-            end_ts = start_ts + 3600
-
-            screenshots = self.storage.get_screenshots(start_ts, end_ts - 1)
-
-            if len(screenshots) < 2:
-                self.log(f"Skipping {hour}:00 - only {len(screenshots)} screenshot(s)")
-                return
-
-            # Sample if too many - use trigger_threshold as max samples
-            max_samples = config_mgr.config.summarization.trigger_threshold
-            if len(screenshots) > max_samples:
-                step = len(screenshots) / max_samples
-                indices = [int(i * step) for i in range(max_samples)]
-                screenshots = [screenshots[i] for i in indices]
-
-            # Get paths and IDs
-            data_dir = Path.home() / "activity-tracker-data" / "screenshots"
-            paths = [str(data_dir / s["filepath"]) for s in screenshots]
-            screenshot_ids = [s["id"] for s in screenshots]
-
-            self.log(f"Generating summary for {hour}:00 ({len(screenshots)} screenshots)...")
-
-            start_time = time.time()
-            summary = summarizer.summarize_hour(paths)
-            inference_ms = int((time.time() - start_time) * 1000)
-
-            self.storage.save_summary(
-                date=date_str,
-                hour=hour,
-                summary=summary,
-                screenshot_ids=screenshot_ids,
-                model=summarizer.model,
-                inference_ms=inference_ms,
-            )
-
-            self.log(f"Summary for {hour}:00 generated in {inference_ms}ms")
-
-        except Exception as e:
-            self.log(f"Summarization error for {hour}:00: {e}")
-
-    def _trigger_summarization(self, hour: int):
-        """Trigger summarization for an hour in a background thread."""
-        now = datetime.now()
-        date_str = now.strftime("%Y-%m-%d")
-
-        # If it's a new day (hour 23 from yesterday)
-        if hour == 23 and now.hour == 0:
-            from datetime import timedelta
-            yesterday = now - timedelta(days=1)
-            date_str = yesterday.strftime("%Y-%m-%d")
-
-        # Mark as summarized before starting to avoid re-triggering
-        self.last_summarized_hour = (now.date(), hour)
-
-        # Run in background thread to not block capture
-        self.summarize_thread = threading.Thread(
-            target=self._run_summarization,
-            args=(date_str, hour),
-            daemon=True
-        )
-        self.summarize_thread.start()
-    
     def log(self, message: str):
         """Log a timestamped message to stderr.
         
@@ -815,14 +627,7 @@ class ActivityDaemon:
                     # End the old session - was AFK or daemon was down too long
                     reason = "daemon downtime" if daemon_likely_down else "AFK timeout"
                     self.log(f"Previous session {session_id} stale ({seconds_since_last}s since last activity, {reason})")
-                    session = self.session_manager.end_session(session_id)
-                    if session and self.auto_summarize:
-                        # Summarize the old session in background
-                        threading.Thread(
-                            target=self._summarize_session,
-                            args=(session,),
-                            daemon=True
-                        ).start()
+                    self.session_manager.end_session(session_id)
                     # Start a fresh session
                     self.current_session_id = self.session_manager.start_session()
                     self.log(f"Started new session {self.current_session_id}")
@@ -950,8 +755,6 @@ class ActivityDaemon:
                 focus_info = f", focus={focus_duration:.1f}s" if focus_duration else ""
                 self.log(f"Captured ({capture_reason}{focus_info}): {Path(filepath).name}")
 
-                # Check if threshold reached for summarization
-                self.summarizer_worker.check_and_queue()
 
             except Exception as e:
                 # TODO: Edge case - daemon should be more resilient to errors and not crash
@@ -987,8 +790,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Activity tracking daemon")
     parser.add_argument("--web", action="store_true", help="Enable web server")
     parser.add_argument("--web-port", type=int, default=55555, help="Web server port (default: 55555)")
-    parser.add_argument("--auto-summarize", action="store_true",
-                        help="Enable auto-summarization of sessions on AFK")
     parser.add_argument("--afk-timeout", type=int, default=180,
                         help="Seconds of inactivity before considered AFK (default: 180)")
     parser.add_argument("--afk-poll", type=float, default=5.0,
@@ -999,7 +800,6 @@ if __name__ == "__main__":
     daemon = ActivityDaemon(
         enable_web=args.web,
         web_port=args.web_port,
-        auto_summarize=args.auto_summarize,
         afk_timeout=args.afk_timeout,
         afk_poll_time=args.afk_poll,
     )

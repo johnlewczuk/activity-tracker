@@ -39,6 +39,12 @@ activity-tracker-data/
 *.swo
 *~
 
+# Claude Code tooling
+.claude/
+
+# Playwright test artifacts
+.playwright-mcp/
+
 # OS
 .DS_Store
 Thumbs.db

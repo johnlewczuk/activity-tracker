@@ -37,12 +37,15 @@ Example:
 """
 
 import json
+import logging
 import sqlite3
 import os
 from contextlib import contextmanager
 from datetime import datetime
 from typing import List, Dict, Optional
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class ActivityStorage:
@@ -310,23 +313,23 @@ class ActivityStorage:
                     CREATE INDEX IF NOT EXISTS idx_threshold_summary_project
                     ON threshold_summaries(project)
                 """)
-                print("Added 'project' column to threshold_summaries table")
+                logger.info("Added 'project' column to threshold_summaries table")
 
             # Add prompt_text column to threshold_summaries if not exists (migration)
             if 'prompt_text' not in columns:
                 conn.execute("ALTER TABLE threshold_summaries ADD COLUMN prompt_text TEXT")
-                print("Added 'prompt_text' column to threshold_summaries table")
+                logger.info("Added 'prompt_text' column to threshold_summaries table")
 
             # Add explanation and confidence columns for structured summaries (migration)
             if 'explanation' not in columns:
                 conn.execute("ALTER TABLE threshold_summaries ADD COLUMN explanation TEXT")
-                print("Added 'explanation' column to threshold_summaries table")
+                logger.info("Added 'explanation' column to threshold_summaries table")
             if 'confidence' not in columns:
                 conn.execute("ALTER TABLE threshold_summaries ADD COLUMN confidence REAL")
-                print("Added 'confidence' column to threshold_summaries table")
+                logger.info("Added 'confidence' column to threshold_summaries table")
             if 'tags' not in columns:
                 conn.execute("ALTER TABLE threshold_summaries ADD COLUMN tags TEXT")
-                print("Added 'tags' column to threshold_summaries table")
+                logger.info("Added 'tags' column to threshold_summaries table")
 
             # Junction table for threshold summaries <-> screenshots (proper M:N relationship)
             conn.execute("""
@@ -425,9 +428,29 @@ class ActivityStorage:
                     model_used TEXT,
                     inference_time_ms INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    prompt_text TEXT,  -- Full prompt sent to LLM
+                    explanation TEXT,  -- LLM-provided explanation
+                    tags TEXT,  -- JSON array of activity tags
+                    confidence REAL,  -- Confidence score (0.0-1.0)
+                    child_summary_ids TEXT,  -- JSON array of child summary IDs
+                    regenerated_at TIMESTAMP,  -- Last regeneration timestamp
                     UNIQUE(period_type, period_date)
                 )
             """)
+
+            # Add new columns to existing cached_reports table (safe migrations)
+            for col_def in [
+                ('prompt_text', 'TEXT'),
+                ('explanation', 'TEXT'),
+                ('tags', 'TEXT'),
+                ('confidence', 'REAL'),
+                ('child_summary_ids', 'TEXT'),
+                ('regenerated_at', 'TIMESTAMP'),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE cached_reports ADD COLUMN {col_def[0]} {col_def[1]}")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
 
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_cached_reports_period
@@ -2521,7 +2544,10 @@ class ActivityStorage:
             sessions = cursor.fetchall()
 
             longest_continuous = 0
+            longest_continuous_start = None
+            longest_continuous_end = None
             current_continuous = 0
+            current_continuous_start = None
             last_end = None
             break_count = 0
             total_break_seconds = 0
@@ -2544,16 +2570,25 @@ class ActivityStorage:
 
                     # If gap > 5 minutes, reset continuous work counter
                     if gap_seconds > 300:
-                        longest_continuous = max(longest_continuous, current_continuous)
+                        if current_continuous > longest_continuous:
+                            longest_continuous = current_continuous
+                            longest_continuous_start = current_continuous_start
+                            longest_continuous_end = last_end
                         current_continuous = session_duration
+                        current_continuous_start = session['start_time']
                     else:
                         current_continuous += session_duration
                 else:
                     current_continuous = session_duration
+                    current_continuous_start = session['start_time']
 
                 last_end = session['end_time']
 
-            longest_continuous = max(longest_continuous, current_continuous)
+            # Check final period
+            if current_continuous > longest_continuous:
+                longest_continuous = current_continuous
+                longest_continuous_start = current_continuous_start
+                longest_continuous_end = last_end
 
         # Active percentage based on first session to last session span (not midnight to midnight)
         if sessions:
@@ -2571,7 +2606,9 @@ class ActivityStorage:
             'break_count': break_count,
             'workday_span_seconds': int(workday_span),
             'active_percentage': round(active_percentage, 1),
-            'longest_work_without_break_seconds': int(longest_continuous)
+            'longest_work_without_break_seconds': int(longest_continuous),
+            'longest_work_without_break_start': longest_continuous_start,
+            'longest_work_without_break_end': longest_continuous_end
         }
 
     def get_meetings_time(
@@ -2779,7 +2816,13 @@ class ActivityStorage:
         analytics: Dict = None,
         summary_ids: List[int] = None,
         model_used: str = None,
-        inference_time_ms: int = None
+        inference_time_ms: int = None,
+        prompt_text: str = None,
+        explanation: str = None,
+        tags: List[str] = None,
+        confidence: float = None,
+        child_summary_ids: List[int] = None,
+        is_regeneration: bool = False
     ) -> int:
         """Save or update a cached report.
 
@@ -2794,17 +2837,73 @@ class ActivityStorage:
             summary_ids: IDs of source threshold summaries used.
             model_used: LLM model used for generation.
             inference_time_ms: Time taken to generate.
+            prompt_text: Full prompt sent to LLM.
+            explanation: LLM-provided explanation of the summary.
+            tags: List of activity tags extracted from content.
+            confidence: Confidence score (0.0-1.0).
+            child_summary_ids: IDs of child summaries used for synthesis.
+            is_regeneration: If True, set regenerated_at instead of created_at.
 
         Returns:
             ID of the inserted/updated record.
         """
         with self.get_connection() as conn:
+            # Check if this is a regeneration (record exists)
+            if is_regeneration:
+                cursor = conn.execute(
+                    """
+                    UPDATE cached_reports SET
+                        start_time = ?,
+                        end_time = ?,
+                        executive_summary = ?,
+                        sections_json = ?,
+                        analytics_json = ?,
+                        summary_ids_json = ?,
+                        model_used = ?,
+                        inference_time_ms = ?,
+                        prompt_text = ?,
+                        explanation = ?,
+                        tags = ?,
+                        confidence = ?,
+                        child_summary_ids = ?,
+                        regenerated_at = CURRENT_TIMESTAMP
+                    WHERE period_type = ? AND period_date = ?
+                    """,
+                    (
+                        start_time.isoformat(),
+                        end_time.isoformat(),
+                        executive_summary,
+                        json.dumps(sections) if sections is not None else None,
+                        json.dumps(analytics) if analytics is not None else None,
+                        json.dumps(summary_ids) if summary_ids is not None else None,
+                        model_used,
+                        inference_time_ms,
+                        prompt_text,
+                        explanation,
+                        json.dumps(tags) if tags is not None else None,
+                        confidence,
+                        json.dumps(child_summary_ids) if child_summary_ids is not None else None,
+                        period_type,
+                        period_date,
+                    ),
+                )
+                conn.commit()
+                if cursor.rowcount > 0:
+                    # Get the ID of the updated record
+                    id_cursor = conn.execute(
+                        "SELECT id FROM cached_reports WHERE period_type = ? AND period_date = ?",
+                        (period_type, period_date),
+                    )
+                    return id_cursor.fetchone()[0]
+
+            # Insert or update (for new records)
             cursor = conn.execute(
                 """
                 INSERT INTO cached_reports
                     (period_type, period_date, start_time, end_time, executive_summary,
-                     sections_json, analytics_json, summary_ids_json, model_used, inference_time_ms)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     sections_json, analytics_json, summary_ids_json, model_used, inference_time_ms,
+                     prompt_text, explanation, tags, confidence, child_summary_ids)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(period_type, period_date) DO UPDATE SET
                     start_time = excluded.start_time,
                     end_time = excluded.end_time,
@@ -2814,6 +2913,11 @@ class ActivityStorage:
                     summary_ids_json = excluded.summary_ids_json,
                     model_used = excluded.model_used,
                     inference_time_ms = excluded.inference_time_ms,
+                    prompt_text = excluded.prompt_text,
+                    explanation = excluded.explanation,
+                    tags = excluded.tags,
+                    confidence = excluded.confidence,
+                    child_summary_ids = excluded.child_summary_ids,
                     created_at = CURRENT_TIMESTAMP
                 """,
                 (
@@ -2827,6 +2931,11 @@ class ActivityStorage:
                     json.dumps(summary_ids) if summary_ids is not None else None,
                     model_used,
                     inference_time_ms,
+                    prompt_text,
+                    explanation,
+                    json.dumps(tags) if tags is not None else None,
+                    confidence,
+                    json.dumps(child_summary_ids) if child_summary_ids is not None else None,
                 ),
             )
             conn.commit()
@@ -2847,7 +2956,9 @@ class ActivityStorage:
                 """
                 SELECT id, period_type, period_date, start_time, end_time,
                        executive_summary, sections_json, analytics_json,
-                       summary_ids_json, model_used, inference_time_ms, created_at
+                       summary_ids_json, model_used, inference_time_ms, created_at,
+                       prompt_text, explanation, tags, confidence,
+                       child_summary_ids, regenerated_at
                 FROM cached_reports
                 WHERE period_type = ? AND period_date = ?
                 """,
@@ -2864,6 +2975,10 @@ class ActivityStorage:
                 result['analytics'] = json.loads(result['analytics_json'])
             if result.get('summary_ids_json'):
                 result['summary_ids'] = json.loads(result['summary_ids_json'])
+            if result.get('tags'):
+                result['tags'] = json.loads(result['tags'])
+            if result.get('child_summary_ids'):
+                result['child_summary_ids'] = json.loads(result['child_summary_ids'])
             return result
 
     def get_cached_reports_in_range(
@@ -2887,7 +3002,9 @@ class ActivityStorage:
                 """
                 SELECT id, period_type, period_date, start_time, end_time,
                        executive_summary, sections_json, analytics_json,
-                       summary_ids_json, model_used, inference_time_ms, created_at
+                       summary_ids_json, model_used, inference_time_ms, created_at,
+                       prompt_text, explanation, tags, confidence,
+                       child_summary_ids, regenerated_at
                 FROM cached_reports
                 WHERE period_type = ?
                   AND period_date >= ?
@@ -2905,6 +3022,10 @@ class ActivityStorage:
                     result['analytics'] = json.loads(result['analytics_json'])
                 if result.get('summary_ids_json'):
                     result['summary_ids'] = json.loads(result['summary_ids_json'])
+                if result.get('tags'):
+                    result['tags'] = json.loads(result['tags'])
+                if result.get('child_summary_ids'):
+                    result['child_summary_ids'] = json.loads(result['child_summary_ids'])
                 results.append(result)
             return results
 
@@ -2937,3 +3058,85 @@ class ActivityStorage:
             existing_dates = set(row[0] for row in cursor.fetchall())
 
         return sorted(expected_dates - existing_dates, reverse=True)
+
+    def get_missing_weekly_reports(self, weeks_back: int = 4) -> List[str]:
+        """Get weeks that don't have cached weekly reports.
+
+        Args:
+            weeks_back: How many weeks to look back.
+
+        Returns:
+            List of ISO week strings (YYYY-Www) missing cached reports.
+        """
+        from datetime import timedelta
+
+        today = datetime.now().date()
+        expected_weeks = set()
+        # Calculate ISO weeks for previous weeks
+        for i in range(1, weeks_back + 1):
+            # Go back to the previous week's Monday
+            days_since_monday = today.weekday()
+            last_monday = today - timedelta(days=days_since_monday + (i * 7))
+            iso_year, iso_week, _ = last_monday.isocalendar()
+            expected_weeks.add(f"{iso_year}-W{iso_week:02d}")
+
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT period_date FROM cached_reports
+                WHERE period_type = 'weekly'
+                """,
+            )
+            existing_weeks = set(row[0] for row in cursor.fetchall())
+
+        return sorted(expected_weeks - existing_weeks, reverse=True)
+
+    def get_missing_monthly_reports(self, months_back: int = 3) -> List[str]:
+        """Get months that don't have cached monthly reports.
+
+        Args:
+            months_back: How many months to look back.
+
+        Returns:
+            List of month strings (YYYY-MM) missing cached reports.
+        """
+        today = datetime.now().date()
+        expected_months = set()
+        # Calculate previous months
+        for i in range(1, months_back + 1):
+            # Calculate month by subtracting
+            year = today.year
+            month = today.month - i
+            while month <= 0:
+                month += 12
+                year -= 1
+            expected_months.add(f"{year}-{month:02d}")
+
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT period_date FROM cached_reports
+                WHERE period_type = 'monthly'
+                """,
+            )
+            existing_months = set(row[0] for row in cursor.fetchall())
+
+        return sorted(expected_months - existing_months, reverse=True)
+
+    def delete_cached_report(self, period_type: str, period_date: str) -> bool:
+        """Delete a cached report.
+
+        Args:
+            period_type: 'daily', 'weekly', or 'monthly'.
+            period_date: Period identifier.
+
+        Returns:
+            True if a record was deleted.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM cached_reports WHERE period_type = ? AND period_date = ?",
+                (period_type, period_date),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
