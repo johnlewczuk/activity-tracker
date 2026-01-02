@@ -1,1186 +1,1030 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports - Activity Tracker</title>
-    <link rel="stylesheet" href="/static/styles/base.css">
-    <script src="/static/js/utils.js"></script>
-    <style>
-        :root {
-            color-scheme: light dark;
-            --bg: #0d1117;
-            --surface: #161b22;
-            --surface-2: #21262d;
-            --border: #30363d;
-            --text: #c9d1d9;
-            --muted: #8b949e;
-            --muted-strong: #6e7681;
-            --accent: #58a6ff;
-            --accent-strong: #1f6feb;
-            --accent-soft: #79c0ff;
-            --accent-rgb: 88, 166, 255;
-            --danger: #f85149;
-            --success: #238636;
-            --success-strong: #2ea043;
-        }
-
-        @media (prefers-color-scheme: light) {
-            :root {
-                color-scheme: light;
-                --bg: #f6f8fa;
-                --surface: #ffffff;
-                --surface-2: #eef1f5;
-                --border: #d0d7de;
-                --text: #1f2328;
-                --muted: #57606a;
-                --muted-strong: #4b5563;
-                --accent: #0969da;
-                --accent-strong: #0550ae;
-                --accent-soft: #218bff;
-                --accent-rgb: 9, 105, 218;
-                --danger: #cf222e;
-                --success: #1f883d;
-                --success-strong: #2da44e;
-            }
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        header {
-            margin-bottom: 30px;
-        }
-
-        h1 {
-            font-size: 2rem;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 10px;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 20px;
-            margin-top: 15px;
-        }
-
-        .nav-links a {
-            color: var(--muted);
-            text-decoration: none;
-            font-size: 0.9rem;
-            padding: 8px 0;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            border-bottom: 2px solid transparent;
-        }
-
-        .nav-links a:hover {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-        }
-
-        .nav-links a.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-            font-weight: 600;
-        }
-
-        .nav-icon {
-            width: 16px;
-            height: 16px;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        /* Presets Section */
-        .section {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .section h2 {
-            font-size: 1.1rem;
-            color: var(--accent);
-            margin-bottom: 15px;
-        }
-
-        .preset-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 10px;
-        }
-
-        .preset-btn {
-            background: var(--surface-2);
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 12px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-            text-align: center;
-        }
-
-        .preset-btn:hover {
-            background: var(--border);
-            border-color: var(--accent);
-        }
-
-        .preset-btn.standup {
-            border-color: var(--success);
-        }
-
-        .preset-btn.standup:hover {
-            background: var(--success);
-            color: white;
-        }
-
-        /* Custom Form */
-        .custom-form {
-            display: grid;
-            gap: 15px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .form-group label {
-            font-size: 0.85rem;
-            color: var(--muted);
-        }
-
-        .form-group input,
-        .form-group select {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 10px 12px;
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        .hint {
-            font-size: 0.75rem;
-            color: var(--muted-strong);
-        }
-
-        .checkbox-group {
-            flex-direction: row;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--accent);
-        }
-
-        .primary-btn {
-            background: var(--accent);
-            color: white;
-            border: 1px solid var(--accent-strong);
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s;
-            width: fit-content;
-        }
-
-        .primary-btn:hover {
-            background: var(--accent-strong);
-        }
-
-        .primary-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        /* Report Display */
-        .report-container {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 24px;
-        }
-
-        .report-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        .report-header h2 {
-            font-size: 1.5rem;
-            color: var(--text);
-            margin: 0;
-        }
-
-        .report-meta {
-            font-size: 0.85rem;
-            color: var(--muted);
-        }
-
-        .report-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .export-btn {
-            background: var(--surface-2);
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.2s;
-        }
-
-        .export-btn:hover {
-            background: var(--border);
-            border-color: var(--accent);
-        }
-
-        /* Analytics Grid */
-        .analytics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .stat-card {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--accent);
-            line-height: 1.2;
-        }
-
-        .stat-label {
-            font-size: 0.8rem;
-            color: var(--muted);
-            margin-top: 4px;
-        }
-
-        /* Executive Summary */
-        .summary-card {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 25px;
-        }
-
-        .summary-card h3 {
-            font-size: 1rem;
-            color: var(--accent);
-            margin-bottom: 12px;
-        }
-
-        .summary-card p {
-            color: var(--text);
-            line-height: 1.7;
-            white-space: pre-line;
-        }
-
-        /* Sections */
-        .section-card {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 15px;
-        }
-
-        .section-card h3 {
-            font-size: 0.95rem;
-            color: var(--accent-soft);
-            margin-bottom: 8px;
-        }
-
-        .section-card p {
-            color: var(--text);
-            font-size: 0.9rem;
-            line-height: 1.6;
-        }
-
-        /* Top Apps */
-        .top-apps {
-            margin-bottom: 25px;
-        }
-
-        .top-apps h3 {
-            font-size: 1rem;
-            color: var(--accent);
-            margin-bottom: 12px;
-        }
-
-        .app-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .app-badge {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            padding: 6px 12px;
-            border-radius: 16px;
-            font-size: 0.85rem;
-            color: var(--text);
-        }
-
-        .app-badge .app-time {
-            color: var(--muted);
-            font-size: 0.8rem;
-            margin-left: 4px;
-        }
-
-        /* Screenshots Section */
-        .screenshots-section {
-            margin-top: 25px;
-        }
-
-        .screenshots-section h3 {
-            font-size: 1rem;
-            color: var(--accent);
-            margin-bottom: 15px;
-        }
-
-        .screenshot-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .screenshot-card {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .screenshot-card img {
-            width: 100%;
-            aspect-ratio: 16/10;
-            object-fit: cover;
-            display: block;
-        }
-
-        .screenshot-meta {
-            padding: 10px;
-            font-size: 0.8rem;
-        }
-
-        .screenshot-meta .time {
-            color: var(--accent);
-            display: block;
-        }
-
-        .screenshot-meta .title {
-            color: var(--muted);
-            display: block;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Loading Overlay */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            color: var(--text);
-            margin-top: 16px;
-            font-size: 1rem;
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--muted);
-        }
-
-        .empty-state-icon {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            opacity: 0.5;
-        }
-
-        /* History List */
-        /* Saved Reports */
-        .section-desc {
-            color: var(--muted);
-            font-size: 0.85rem;
-            margin-bottom: 1rem;
-        }
-
-        .saved-report-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .saved-report-item:hover {
-            border-color: var(--accent);
-            background: var(--surface);
-        }
-
-        .saved-report-info {
-            flex: 1;
-        }
-
-        .saved-report-date {
-            font-weight: 600;
-            color: var(--accent);
-            font-size: 0.95rem;
-        }
-
-        .saved-report-summary {
-            color: var(--muted);
-            font-size: 0.8rem;
-            margin-top: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 500px;
-        }
-
-        .saved-report-stats {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            color: var(--text);
-            font-size: 0.85rem;
-        }
-
-        .saved-report-stats span {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        /* History */
-        .history-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            margin-bottom: 8px;
-        }
-
-        .history-item:hover {
-            border-color: var(--accent);
-        }
-
-        .history-info {
-            flex: 1;
-        }
-
-        .history-title {
-            font-weight: 500;
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-
-        .history-meta {
-            font-size: 0.8rem;
-            color: var(--muted);
-        }
-
-        .history-meta span {
-            margin-right: 12px;
-        }
-
-        .history-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .history-actions button {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
-
-        .history-actions button:hover {
-            background: var(--border);
-        }
-
-        .history-actions button.download {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: white;
-        }
-
-        .history-actions button.download:hover {
-            background: var(--accent-strong);
-        }
-
-        .format-badge {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            background: var(--surface);
-            border: 1px solid var(--border);
-        }
-
-        .format-badge.json { color: #f0db4f; border-color: #f0db4f; }
-        .format-badge.html { color: #e34c26; border-color: #e34c26; }
-        .format-badge.markdown { color: #83cd29; border-color: #83cd29; }
-        .format-badge.pdf { color: #ff5252; border-color: #ff5252; }
-
-        /* Responsive */
-        @media (max-width: 640px) {
-            .container {
-                padding: 10px;
-            }
-
-            h1 {
-                font-size: 1.5rem;
-            }
-
-            .preset-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .report-header {
-                flex-direction: column;
-            }
-
-            .stat-value {
-                font-size: 1.4rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Activity Tracker</h1>
-            {% set active_page = 'reports' %}
-            {% include 'partials/_nav.html' %}
-        </header>
-
-        <!-- Quick Presets -->
-        <div class="section">
-            <h2>Quick Reports</h2>
-            <div class="preset-grid">
-                <button class="preset-btn" data-range="today" data-type="summary">Today</button>
-                <button class="preset-btn" data-range="yesterday" data-type="summary">Yesterday</button>
-                <button class="preset-btn" data-range="this week" data-type="summary">This Week</button>
-                <button class="preset-btn" data-range="last week" data-type="detailed">Last Week</button>
-                <button class="preset-btn standup" data-range="since this morning" data-type="standup">Standup (Today)</button>
-                <button class="preset-btn standup" data-range="yesterday" data-type="standup">Standup (Yesterday)</button>
+{% extends "base.html" %}
+{% set page = 'reports' %}
+
+{% block title %}Reports - Activity Tracker{% endblock %}
+
+{% block extra_styles %}
+/* Presets Section */
+.section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.section h2 {
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-bottom: 15px;
+}
+
+.preset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.preset-btn {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.preset-btn:hover {
+    background: var(--border);
+    border-color: var(--accent);
+}
+
+.preset-btn.standup {
+    border-color: var(--success);
+}
+
+.preset-btn.standup:hover {
+    background: var(--success);
+    color: white;
+}
+
+/* Custom Form */
+.custom-form {
+    display: grid;
+    gap: 15px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.form-group input,
+.form-group select {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.hint {
+    font-size: 0.75rem;
+    color: var(--muted-strong);
+}
+
+.checkbox-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+.primary-btn {
+    background: var(--accent);
+    color: white;
+    border: 1px solid var(--accent-strong);
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    width: fit-content;
+}
+
+.primary-btn:hover {
+    background: var(--accent-strong);
+}
+
+.primary-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Report Display */
+.report-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.report-header h2 {
+    font-size: 1.5rem;
+    color: var(--text);
+    margin: 0;
+}
+
+.report-meta {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.report-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.export-btn {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.export-btn:hover {
+    background: var(--border);
+    border-color: var(--accent);
+}
+
+/* Analytics Grid */
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.stat-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+/* Executive Summary */
+.summary-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 25px;
+}
+
+.summary-card h3 {
+    font-size: 1rem;
+    color: var(--accent);
+    margin-bottom: 12px;
+}
+
+.summary-card p {
+    color: var(--text);
+    line-height: 1.7;
+    white-space: pre-line;
+}
+
+/* Sections */
+.section-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 15px;
+}
+
+.section-card h3 {
+    font-size: 0.95rem;
+    color: var(--accent-soft);
+    margin-bottom: 8px;
+}
+
+.section-card p {
+    color: var(--text);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+/* Top Apps */
+.top-apps {
+    margin-bottom: 25px;
+}
+
+.top-apps h3 {
+    font-size: 1rem;
+    color: var(--accent);
+    margin-bottom: 12px;
+}
+
+.app-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.app-badge {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    color: var(--text);
+}
+
+.app-badge .app-time {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-left: 4px;
+}
+
+/* Screenshots Section */
+.screenshots-section {
+    margin-top: 25px;
+}
+
+.screenshots-section h3 {
+    font-size: 1rem;
+    color: var(--accent);
+    margin-bottom: 15px;
+}
+
+.screenshot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.screenshot-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.screenshot-card img {
+    width: 100%;
+    aspect-ratio: 16/10;
+    object-fit: cover;
+    display: block;
+}
+
+.screenshot-meta {
+    padding: 10px;
+    font-size: 0.8rem;
+}
+
+.screenshot-meta .time {
+    color: var(--accent);
+    display: block;
+}
+
+.screenshot-meta .title {
+    color: var(--muted);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    color: var(--text);
+    margin-top: 16px;
+    font-size: 1rem;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+/* Saved Reports */
+.section-desc {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.saved-report-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.saved-report-item:hover {
+    border-color: var(--accent);
+    background: var(--surface);
+}
+
+.saved-report-info {
+    flex: 1;
+}
+
+.saved-report-date {
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 0.95rem;
+}
+
+.saved-report-summary {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 500px;
+}
+
+.saved-report-stats {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: var(--text);
+    font-size: 0.85rem;
+}
+
+.saved-report-stats span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* History */
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.history-item:hover {
+    border-color: var(--accent);
+}
+
+.history-info {
+    flex: 1;
+}
+
+.history-title {
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.history-meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.history-meta span {
+    margin-right: 12px;
+}
+
+.history-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.history-actions button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.history-actions button:hover {
+    background: var(--border);
+}
+
+.history-actions button.download {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.history-actions button.download:hover {
+    background: var(--accent-strong);
+}
+
+.format-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+
+.format-badge.json { color: #f0db4f; border-color: #f0db4f; }
+.format-badge.html { color: #e34c26; border-color: #e34c26; }
+.format-badge.markdown { color: #83cd29; border-color: #83cd29; }
+.format-badge.pdf { color: #ff5252; border-color: #ff5252; }
+
+/* Responsive */
+@media (max-width: 640px) {
+    .preset-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .report-header {
+        flex-direction: column;
+    }
+
+    .stat-value {
+        font-size: 1.4rem;
+    }
+}
+{% endblock %}
+
+{% block content %}
+<!-- Quick Presets -->
+<div class="section">
+    <h2>Quick Reports</h2>
+    <div class="preset-grid">
+        <button class="preset-btn" data-range="today" data-type="summary">Today</button>
+        <button class="preset-btn" data-range="yesterday" data-type="summary">Yesterday</button>
+        <button class="preset-btn" data-range="this week" data-type="summary">This Week</button>
+        <button class="preset-btn" data-range="last week" data-type="detailed">Last Week</button>
+        <button class="preset-btn standup" data-range="since this morning" data-type="standup">Standup (Today)</button>
+        <button class="preset-btn standup" data-range="yesterday" data-type="standup">Standup (Yesterday)</button>
+    </div>
+</div>
+
+<!-- Custom Report -->
+<div class="section">
+    <h2>Custom Report</h2>
+    <div class="custom-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="time-range">Time Range</label>
+                <input type="text" id="time-range"
+                       placeholder="e.g., last 3 days, Dec 1 to Dec 5, this month">
+                <div class="hint">Natural language: "yesterday", "last week", "past 2 hours"</div>
+            </div>
+            <div class="form-group">
+                <label for="report-type">Report Type</label>
+                <select id="report-type">
+                    <option value="summary">Summary (high-level overview)</option>
+                    <option value="detailed">Detailed (day-by-day breakdown)</option>
+                    <option value="standup">Standup (brief bullet points)</option>
+                </select>
             </div>
         </div>
-
-        <!-- Custom Report -->
-        <div class="section">
-            <h2>Custom Report</h2>
-            <div class="custom-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="time-range">Time Range</label>
-                        <input type="text" id="time-range"
-                               placeholder="e.g., last 3 days, Dec 1 to Dec 5, this month">
-                        <div class="hint">Natural language: "yesterday", "last week", "past 2 hours"</div>
-                    </div>
-                    <div class="form-group">
-                        <label for="report-type">Report Type</label>
-                        <select id="report-type">
-                            <option value="summary">Summary (high-level overview)</option>
-                            <option value="detailed">Detailed (day-by-day breakdown)</option>
-                            <option value="standup">Standup (brief bullet points)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group checkbox-group">
-                    <input type="checkbox" id="include-screenshots" checked>
-                    <label for="include-screenshots">Include key screenshots</label>
-                </div>
-                <button id="generate-btn" class="primary-btn">Generate Report</button>
-            </div>
+        <div class="form-group checkbox-group">
+            <input type="checkbox" id="include-screenshots" checked>
+            <label for="include-screenshots">Include key screenshots</label>
         </div>
+        <button id="generate-btn" class="primary-btn">Generate Report</button>
+    </div>
+</div>
 
-        <!-- Report Display (moved up for better UX) -->
-        <div class="report-container" id="report-container" style="display: none;">
-            <div class="report-header">
-                <div>
-                    <h2 id="report-title"></h2>
-                    <div class="report-meta" id="report-meta"></div>
-                </div>
-                <div class="report-actions">
-                    <button class="export-btn" data-format="markdown">📄 Markdown</button>
-                    <button class="export-btn" data-format="html">🌐 HTML</button>
-                    <button class="export-btn" data-format="pdf">📑 PDF</button>
-                    <button class="export-btn" data-format="json">📊 JSON</button>
-                </div>
-            </div>
-
-            <!-- Analytics Cards -->
-            <div class="analytics-grid" id="analytics-grid"></div>
-
-            <!-- Top Apps -->
-            <div class="top-apps" id="top-apps"></div>
-
-            <!-- Executive Summary -->
-            <div class="summary-card" id="executive-summary"></div>
-
-            <!-- Sections -->
-            <div id="report-sections"></div>
-
-            <!-- Screenshots -->
-            <div class="screenshots-section" id="screenshots-section" style="display: none;">
-                <h3>Key Screenshots</h3>
-                <div class="screenshot-grid" id="screenshot-grid"></div>
-            </div>
+<!-- Report Display -->
+<div class="report-container" id="report-container" style="display: none;">
+    <div class="report-header">
+        <div>
+            <h2 id="report-title"></h2>
+            <div class="report-meta" id="report-meta"></div>
         </div>
-
-        <!-- Saved Reports (cached daily reports) -->
-        <div class="section" id="saved-reports-section">
-            <h2>Daily Summaries</h2>
-            <p class="section-desc">Auto-generated daily reports from AI summaries. Click to view and export.</p>
-            <div id="saved-reports-list">
-                <div class="empty-state" id="saved-empty">
-                    <div class="empty-state-icon">📊</div>
-                    <p>No daily summaries yet. These are auto-generated from your activity data.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Report History (exported files) -->
-        <div class="section" id="history-section">
-            <h2>Recent Exports</h2>
-            <div id="history-list">
-                <div class="empty-state" id="history-empty">
-                    <div class="empty-state-icon">📁</div>
-                    <p>No exported reports yet</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" id="loading" style="display: none;">
-            <div class="spinner"></div>
-            <div class="loading-text">Generating report...</div>
+        <div class="report-actions">
+            <button class="export-btn" data-format="markdown">Markdown</button>
+            <button class="export-btn" data-format="html">HTML</button>
+            <button class="export-btn" data-format="pdf">PDF</button>
+            <button class="export-btn" data-format="json">JSON</button>
         </div>
     </div>
 
-    <script>
-        // Current report data for export
-        let currentReport = null;
-        let currentTimeRange = '';
-        let currentReportType = 'summary';
-        let pdfAvailable = true;  // Will be updated on load
+    <!-- Analytics Cards -->
+    <div class="analytics-grid" id="analytics-grid"></div>
 
-        // Generate report
-        async function generateReport(timeRange, reportType, includeScreenshots = true) {
-            document.getElementById('loading').style.display = 'flex';
-            document.getElementById('report-container').style.display = 'none';
+    <!-- Top Apps -->
+    <div class="top-apps" id="top-apps"></div>
 
-            currentTimeRange = timeRange;
-            currentReportType = reportType;
+    <!-- Executive Summary -->
+    <div class="summary-card" id="executive-summary"></div>
 
-            try {
-                const response = await fetch('/api/reports/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        time_range: timeRange,
-                        report_type: reportType,
-                        include_screenshots: includeScreenshots
-                    })
-                });
+    <!-- Sections -->
+    <div id="report-sections"></div>
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Report generation failed');
-                }
+    <!-- Screenshots -->
+    <div class="screenshots-section" id="screenshots-section" style="display: none;">
+        <h3>Key Screenshots</h3>
+        <div class="screenshot-grid" id="screenshot-grid"></div>
+    </div>
+</div>
 
-                const report = await response.json();
-                currentReport = report;
-                displayReport(report);
-            } catch (error) {
-                showToast('Error: ' + error.message, 'error');
-            } finally {
-                document.getElementById('loading').style.display = 'none';
+<!-- Saved Reports (cached daily reports) -->
+<div class="section" id="saved-reports-section">
+    <h2>Daily Summaries</h2>
+    <p class="section-desc">Auto-generated daily reports from AI summaries. Click to view and export.</p>
+    <div id="saved-reports-list">
+        <div class="empty-state" id="saved-empty">
+            <div class="empty-state-icon">📊</div>
+            <p>No daily summaries yet. These are auto-generated from your activity data.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Report History (exported files) -->
+<div class="section" id="history-section">
+    <h2>Recent Exports</h2>
+    <div id="history-list">
+        <div class="empty-state" id="history-empty">
+            <div class="empty-state-icon">📁</div>
+            <p>No exported reports yet</p>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading" style="display: none;">
+    <div class="spinner"></div>
+    <div class="loading-text">Generating report...</div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Current report data for export
+    let currentReport = null;
+    let currentTimeRange = '';
+    let currentReportType = 'summary';
+    let pdfAvailable = true;  // Will be updated on load
+
+    // Generate report
+    async function generateReport(timeRange, reportType, includeScreenshots = true) {
+        document.getElementById('loading').style.display = 'flex';
+        document.getElementById('report-container').style.display = 'none';
+
+        currentTimeRange = timeRange;
+        currentReportType = reportType;
+
+        try {
+            const response = await fetch('/api/reports/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    time_range: timeRange,
+                    report_type: reportType,
+                    include_screenshots: includeScreenshots
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Report generation failed');
             }
+
+            const report = await response.json();
+            currentReport = report;
+            displayReport(report);
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        } finally {
+            document.getElementById('loading').style.display = 'none';
         }
+    }
 
-        // Display report
-        function displayReport(report) {
-            document.getElementById('report-title').textContent = report.title;
-            document.getElementById('report-meta').textContent =
-                `Generated: ${new Date(report.generated_at).toLocaleString()}`;
+    // Display report
+    function displayReport(report) {
+        document.getElementById('report-title').textContent = report.title;
+        document.getElementById('report-meta').textContent =
+            `Generated: ${new Date(report.generated_at).toLocaleString()}`;
 
-            // Analytics
-            const hours = Math.floor(report.analytics.total_active_minutes / 60);
-            const mins = report.analytics.total_active_minutes % 60;
-            const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+        // Analytics
+        const hours = Math.floor(report.analytics.total_active_minutes / 60);
+        const mins = report.analytics.total_active_minutes % 60;
+        const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
-            document.getElementById('analytics-grid').innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-value">${timeStr}</div>
-                    <div class="stat-label">Active Time</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${report.analytics.total_sessions}</div>
-                    <div class="stat-label">Sessions</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${report.analytics.top_apps.length}</div>
-                    <div class="stat-label">Apps Used</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" style="font-size: 1rem;">${report.analytics.busiest_period}</div>
-                    <div class="stat-label">Busiest Period</div>
-                </div>
+        document.getElementById('analytics-grid').innerHTML = `
+            <div class="stat-card">
+                <div class="stat-value">${timeStr}</div>
+                <div class="stat-label">Active Time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${report.analytics.total_sessions}</div>
+                <div class="stat-label">Sessions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${report.analytics.top_apps.length}</div>
+                <div class="stat-label">Apps Used</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="font-size: 1rem;">${report.analytics.busiest_period}</div>
+                <div class="stat-label">Busiest Period</div>
+            </div>
+        `;
+
+        // Top Apps
+        if (report.analytics.top_apps.length > 0) {
+            const appsHtml = report.analytics.top_apps.slice(0, 8).map(app => `
+                <span class="app-badge">
+                    ${app.name}
+                    <span class="app-time">${app.minutes}m</span>
+                </span>
+            `).join('');
+
+            document.getElementById('top-apps').innerHTML = `
+                <h3>Top Applications</h3>
+                <div class="app-list">${appsHtml}</div>
             `;
+            document.getElementById('top-apps').style.display = 'block';
+        } else {
+            document.getElementById('top-apps').style.display = 'none';
+        }
 
-            // Top Apps
-            if (report.analytics.top_apps.length > 0) {
-                const appsHtml = report.analytics.top_apps.slice(0, 8).map(app => `
-                    <span class="app-badge">
-                        ${app.name}
-                        <span class="app-time">${app.minutes}m</span>
-                    </span>
-                `).join('');
+        // Executive Summary
+        document.getElementById('executive-summary').innerHTML = `
+            <h3>Executive Summary</h3>
+            <p>${report.executive_summary}</p>
+        `;
 
-                document.getElementById('top-apps').innerHTML = `
-                    <h3>Top Applications</h3>
-                    <div class="app-list">${appsHtml}</div>
-                `;
-                document.getElementById('top-apps').style.display = 'block';
-            } else {
-                document.getElementById('top-apps').style.display = 'none';
-            }
+        // Sections
+        if (report.sections && report.sections.length > 0) {
+            const sectionsHtml = report.sections.map(s => `
+                <div class="section-card">
+                    <h3>${s.title}</h3>
+                    <p>${s.content}</p>
+                </div>
+            `).join('');
+            document.getElementById('report-sections').innerHTML = sectionsHtml;
+        } else {
+            document.getElementById('report-sections').innerHTML = '';
+        }
 
-            // Executive Summary
-            document.getElementById('executive-summary').innerHTML = `
-                <h3>Executive Summary</h3>
-                <p>${report.executive_summary}</p>
-            `;
-
-            // Sections
-            if (report.sections && report.sections.length > 0) {
-                const sectionsHtml = report.sections.map(s => `
-                    <div class="section-card">
-                        <h3>${s.title}</h3>
-                        <p>${s.content}</p>
+        // Screenshots
+        if (report.key_screenshots && report.key_screenshots.length > 0) {
+            const screenshotsHtml = report.key_screenshots.map(s => `
+                <div class="screenshot-card">
+                    <img src="${s.url}" alt="Screenshot" loading="lazy">
+                    <div class="screenshot-meta">
+                        <span class="time">${new Date(s.timestamp).toLocaleTimeString()}</span>
+                        <span class="title">${s.window_title || 'Unknown'}</span>
                     </div>
-                `).join('');
-                document.getElementById('report-sections').innerHTML = sectionsHtml;
-            } else {
-                document.getElementById('report-sections').innerHTML = '';
-            }
-
-            // Screenshots
-            if (report.key_screenshots && report.key_screenshots.length > 0) {
-                const screenshotsHtml = report.key_screenshots.map(s => `
-                    <div class="screenshot-card">
-                        <img src="${s.url}" alt="Screenshot" loading="lazy">
-                        <div class="screenshot-meta">
-                            <span class="time">${new Date(s.timestamp).toLocaleTimeString()}</span>
-                            <span class="title">${s.window_title || 'Unknown'}</span>
-                        </div>
-                    </div>
-                `).join('');
-                document.getElementById('screenshot-grid').innerHTML = screenshotsHtml;
-                document.getElementById('screenshots-section').style.display = 'block';
-            } else {
-                document.getElementById('screenshots-section').style.display = 'none';
-            }
-
-            document.getElementById('report-container').style.display = 'block';
-
-            // Scroll to report with smooth animation
-            setTimeout(() => {
-                document.getElementById('report-container').scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }, 100);
+                </div>
+            `).join('');
+            document.getElementById('screenshot-grid').innerHTML = screenshotsHtml;
+            document.getElementById('screenshots-section').style.display = 'block';
+        } else {
+            document.getElementById('screenshots-section').style.display = 'none';
         }
 
-        // Export report (uses already-generated data - instant!)
-        async function exportReport(format) {
-            if (!currentReport) {
-                showToast('Please generate a report first', 'warning');
-                return;
-            }
+        document.getElementById('report-container').style.display = 'block';
 
-            if (format === 'pdf' && !pdfAvailable) {
-                showToast('PDF export unavailable. Install weasyprint for PDF support.', 'warning');
-                return;
-            }
+        // Scroll to report with smooth animation
+        setTimeout(() => {
+            document.getElementById('report-container').scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }, 100);
+    }
 
-            // Show brief loading indicator for HTML/PDF (needs to embed images)
-            const btn = document.querySelector(`.export-btn[data-format="${format}"]`);
-            const originalText = btn.textContent;
-            btn.textContent = 'Exporting...';
-            btn.disabled = true;
-
-            try {
-                const response = await fetch('/api/reports/export', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        report: currentReport,  // Pass the report data directly!
-                        format: format
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Export failed');
-                }
-
-                const result = await response.json();
-
-                // Refresh history list to show new export
-                loadHistory();
-
-                window.location.href = result.download_url;
-            } catch (error) {
-                showToast('Export error: ' + error.message, 'error');
-            } finally {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }
+    // Export report (uses already-generated data - instant!)
+    async function exportReport(format) {
+        if (!currentReport) {
+            showToast('Please generate a report first', 'warning');
+            return;
         }
 
-        // Check export capabilities on load
-        async function checkCapabilities() {
-            try {
-                const response = await fetch('/api/reports/capabilities');
-                const caps = await response.json();
-                pdfAvailable = caps.pdf_available;
-
-                // Update PDF button state
-                const pdfBtn = document.querySelector('.export-btn[data-format="pdf"]');
-                if (pdfBtn && !pdfAvailable) {
-                    pdfBtn.title = caps.pdf_message || 'PDF export unavailable';
-                    pdfBtn.style.opacity = '0.5';
-                    pdfBtn.style.cursor = 'not-allowed';
-                }
-            } catch (error) {
-                console.warn('Failed to check export capabilities:', error);
-            }
+        if (format === 'pdf' && !pdfAvailable) {
+            showToast('PDF export unavailable. Install weasyprint for PDF support.', 'warning');
+            return;
         }
 
-        // Load report history
-        // Load saved reports (cached daily reports)
-        async function loadSavedReports() {
-            try {
-                const response = await fetch('/api/reports/saved?days_back=30');
-                const data = await response.json();
+        // Show brief loading indicator for HTML/PDF (needs to embed images)
+        const btn = document.querySelector(`.export-btn[data-format="${format}"]`);
+        const originalText = btn.textContent;
+        btn.textContent = 'Exporting...';
+        btn.disabled = true;
 
-                const list = document.getElementById('saved-reports-list');
-                const emptyState = document.getElementById('saved-empty');
+        try {
+            const response = await fetch('/api/reports/export', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    report: currentReport,  // Pass the report data directly!
+                    format: format
+                })
+            });
 
-                if (!data.reports || data.reports.length === 0) {
-                    emptyState.style.display = 'block';
-                    return;
-                }
-
-                emptyState.style.display = 'none';
-
-                // Format duration helper
-                const formatDuration = (mins) => {
-                    if (mins < 60) return `${mins}m`;
-                    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-                };
-
-                // Format date for display
-                const formatDate = (dateStr) => {
-                    const date = new Date(dateStr + 'T12:00:00');
-                    return date.toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                    });
-                };
-
-                const itemsHtml = data.reports.map(r => `
-                    <div class="saved-report-item" onclick="loadSavedReport('${r.period_date}')">
-                        <div class="saved-report-info">
-                            <div class="saved-report-date">${formatDate(r.period_date)}</div>
-                            <div class="saved-report-summary">${r.executive_summary.replace(/</g, '&lt;')}</div>
-                        </div>
-                        <div class="saved-report-stats">
-                            <span>⏱️ ${formatDuration(r.total_minutes)}</span>
-                        </div>
-                    </div>
-                `).join('');
-
-                list.innerHTML = itemsHtml;
-            } catch (error) {
-                console.warn('Failed to load saved reports:', error);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Export failed');
             }
-        }
 
-        // Load a specific saved report for viewing/export
-        async function loadSavedReport(periodDate) {
-            document.getElementById('loading').style.display = 'flex';
-            document.getElementById('report-container').style.display = 'none';
+            const result = await response.json();
 
-            try {
-                const response = await fetch(`/api/reports/saved/${periodDate}`);
-                if (!response.ok) {
-                    throw new Error('Failed to load saved report');
-                }
-
-                const report = await response.json();
-                currentReport = report;
-                currentTimeRange = periodDate;
-                currentReportType = 'summary';
-                displayReport(report);
-            } catch (error) {
-                showToast('Error loading report: ' + error.message, 'error');
-            } finally {
-                document.getElementById('loading').style.display = 'none';
-            }
-        }
-
-        async function loadHistory() {
-            try {
-                const response = await fetch('/api/reports/history?limit=10');
-                const data = await response.json();
-
-                const historyList = document.getElementById('history-list');
-                const emptyState = document.getElementById('history-empty');
-
-                if (!data.reports || data.reports.length === 0) {
-                    emptyState.style.display = 'block';
-                    return;
-                }
-
-                emptyState.style.display = 'none';
-
-                // Build history items HTML
-                const itemsHtml = data.reports.map(r => {
-                    const createdAt = new Date(r.created_at).toLocaleString();
-                    const sizeDisplay = r.file_size_display || '';
-
-                    return `
-                        <div class="history-item" data-id="${r.id}">
-                            <div class="history-info">
-                                <div class="history-title">
-                                    <span class="format-badge ${r.format}">${r.format}</span>
-                                    ${r.title}
-                                </div>
-                                <div class="history-meta">
-                                    <span>${createdAt}</span>
-                                    ${sizeDisplay ? `<span>${sizeDisplay}</span>` : ''}
-                                </div>
-                            </div>
-                            <div class="history-actions">
-                                <button class="download" onclick="window.location.href='${r.download_url}'">Download</button>
-                                <button onclick="deleteHistoryItem(${r.id})">Delete</button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                historyList.innerHTML = itemsHtml;
-            } catch (error) {
-                console.warn('Failed to load report history:', error);
-            }
-        }
-
-        // Delete history item
-        async function deleteHistoryItem(id) {
-            if (!confirm('Remove this report from history?')) return;
-
-            try {
-                const response = await fetch(`/api/reports/history/${id}`, {
-                    method: 'DELETE'
-                });
-
-                if (response.ok) {
-                    loadHistory();  // Refresh the list
-                } else {
-                    showToast('Failed to delete report', 'error');
-                }
-            } catch (error) {
-                showToast('Error deleting report: ' + error.message, 'error');
-            }
-        }
-
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', () => {
-            // Check export capabilities (PDF availability)
-            checkCapabilities();
-
-            // Load saved reports and export history
-            loadSavedReports();
+            // Refresh history list to show new export
             loadHistory();
 
-            // Preset buttons
-            document.querySelectorAll('.preset-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    generateReport(btn.dataset.range, btn.dataset.type);
+            window.location.href = result.download_url;
+        } catch (error) {
+            showToast('Export error: ' + error.message, 'error');
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    // Check export capabilities on load
+    async function checkCapabilities() {
+        try {
+            const response = await fetch('/api/reports/capabilities');
+            const caps = await response.json();
+            pdfAvailable = caps.pdf_available;
+
+            // Update PDF button state
+            const pdfBtn = document.querySelector('.export-btn[data-format="pdf"]');
+            if (pdfBtn && !pdfAvailable) {
+                pdfBtn.title = caps.pdf_message || 'PDF export unavailable';
+                pdfBtn.style.opacity = '0.5';
+                pdfBtn.style.cursor = 'not-allowed';
+            }
+        } catch (error) {
+            console.warn('Failed to check export capabilities:', error);
+        }
+    }
+
+    // Load saved reports (cached daily reports)
+    async function loadSavedReports() {
+        try {
+            const response = await fetch('/api/reports/saved?days_back=30');
+            const data = await response.json();
+
+            const list = document.getElementById('saved-reports-list');
+            const emptyState = document.getElementById('saved-empty');
+
+            if (!data.reports || data.reports.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            // Format duration helper
+            const formatDuration = (mins) => {
+                if (mins < 60) return `${mins}m`;
+                return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+            };
+
+            // Format date for display
+            const formatDate = (dateStr) => {
+                const date = new Date(dateStr + 'T12:00:00');
+                return date.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
                 });
+            };
+
+            const itemsHtml = data.reports.map(r => `
+                <div class="saved-report-item" onclick="loadSavedReport('${r.period_date}')">
+                    <div class="saved-report-info">
+                        <div class="saved-report-date">${formatDate(r.period_date)}</div>
+                        <div class="saved-report-summary">${r.executive_summary.replace(/</g, '&lt;')}</div>
+                    </div>
+                    <div class="saved-report-stats">
+                        <span>${formatDuration(r.total_minutes)}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            list.innerHTML = itemsHtml;
+        } catch (error) {
+            console.warn('Failed to load saved reports:', error);
+        }
+    }
+
+    // Load a specific saved report for viewing/export
+    async function loadSavedReport(periodDate) {
+        document.getElementById('loading').style.display = 'flex';
+        document.getElementById('report-container').style.display = 'none';
+
+        try {
+            const response = await fetch(`/api/reports/saved/${periodDate}`);
+            if (!response.ok) {
+                throw new Error('Failed to load saved report');
+            }
+
+            const report = await response.json();
+            currentReport = report;
+            currentTimeRange = periodDate;
+            currentReportType = 'summary';
+            displayReport(report);
+        } catch (error) {
+            showToast('Error loading report: ' + error.message, 'error');
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+        }
+    }
+
+    async function loadHistory() {
+        try {
+            const response = await fetch('/api/reports/history?limit=10');
+            const data = await response.json();
+
+            const historyList = document.getElementById('history-list');
+            const emptyState = document.getElementById('history-empty');
+
+            if (!data.reports || data.reports.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            // Build history items HTML
+            const itemsHtml = data.reports.map(r => {
+                const createdAt = new Date(r.created_at).toLocaleString();
+                const sizeDisplay = r.file_size_display || '';
+
+                return `
+                    <div class="history-item" data-id="${r.id}">
+                        <div class="history-info">
+                            <div class="history-title">
+                                <span class="format-badge ${r.format}">${r.format}</span>
+                                ${r.title}
+                            </div>
+                            <div class="history-meta">
+                                <span>${createdAt}</span>
+                                ${sizeDisplay ? `<span>${sizeDisplay}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="history-actions">
+                            <button class="download" onclick="window.location.href='${r.download_url}'">Download</button>
+                            <button onclick="deleteHistoryItem(${r.id})">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            historyList.innerHTML = itemsHtml;
+        } catch (error) {
+            console.warn('Failed to load report history:', error);
+        }
+    }
+
+    // Delete history item
+    async function deleteHistoryItem(id) {
+        if (!confirm('Remove this report from history?')) return;
+
+        try {
+            const response = await fetch(`/api/reports/history/${id}`, {
+                method: 'DELETE'
             });
 
-            // Generate button
-            document.getElementById('generate-btn').addEventListener('click', () => {
-                const timeRange = document.getElementById('time-range').value;
-                const reportType = document.getElementById('report-type').value;
-                const includeScreenshots = document.getElementById('include-screenshots').checked;
+            if (response.ok) {
+                loadHistory();  // Refresh the list
+            } else {
+                showToast('Failed to delete report', 'error');
+            }
+        } catch (error) {
+            showToast('Error deleting report: ' + error.message, 'error');
+        }
+    }
 
-                if (!timeRange) {
-                    showToast('Please enter a time range', 'warning');
-                    return;
-                }
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        // Check export capabilities (PDF availability)
+        checkCapabilities();
 
-                generateReport(timeRange, reportType, includeScreenshots);
-            });
+        // Load saved reports and export history
+        loadSavedReports();
+        loadHistory();
 
-            // Export buttons
-            document.querySelectorAll('.export-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    exportReport(btn.dataset.format);
-                });
-            });
-
-            // Enter key on time range input
-            document.getElementById('time-range').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    document.getElementById('generate-btn').click();
-                }
-            });
-
-            // Keyboard shortcuts
-            document.addEventListener('keydown', (e) => {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                    return;
-                }
-
-                switch(e.key.toLowerCase()) {
-                    case 't':
-                        if (!e.metaKey && !e.ctrlKey) {
-                            window.location.href = '/timeline';
-                        }
-                        break;
-                    case 'a':
-                        if (!e.metaKey && !e.ctrlKey) {
-                            window.location.href = '/analytics';
-                        }
-                        break;
-                    case 'r':
-                        if (!e.metaKey && !e.ctrlKey) {
-                            window.location.href = '/reports';
-                        }
-                        break;
-                    case 's':
-                        if (!e.metaKey && !e.ctrlKey) {
-                            window.location.href = '/settings';
-                        }
-                        break;
-                }
+        // Preset buttons
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                generateReport(btn.dataset.range, btn.dataset.type);
             });
         });
-    </script>
-</body>
-</html>
+
+        // Generate button
+        document.getElementById('generate-btn').addEventListener('click', () => {
+            const timeRange = document.getElementById('time-range').value;
+            const reportType = document.getElementById('report-type').value;
+            const includeScreenshots = document.getElementById('include-screenshots').checked;
+
+            if (!timeRange) {
+                showToast('Please enter a time range', 'warning');
+                return;
+            }
+
+            generateReport(timeRange, reportType, includeScreenshots);
+        });
+
+        // Export buttons
+        document.querySelectorAll('.export-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                exportReport(btn.dataset.format);
+            });
+        });
+
+        // Enter key on time range input
+        document.getElementById('time-range').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('generate-btn').click();
+            }
+        });
+    });
+</script>
+{% endblock %}

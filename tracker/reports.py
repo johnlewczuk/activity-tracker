@@ -784,7 +784,11 @@ Brief description."""
 
         return "\n".join(lines)
 
-    def generate_daily_report(self, date_str: str) -> Optional[dict]:
+    def generate_daily_report(
+        self,
+        date_str: str,
+        is_regeneration: bool = False
+    ) -> Optional[dict]:
         """Generate and cache a daily report for a specific date.
 
         This generates a summary report for a single day and caches it
@@ -792,6 +796,7 @@ Brief description."""
 
         Args:
             date_str: Date in YYYY-MM-DD format.
+            is_regeneration: If True, regenerate even if exists.
 
         Returns:
             Cached report dict if generated successfully, None if no activity.
@@ -808,11 +813,12 @@ Brief description."""
         start = datetime.combine(date.date(), datetime.min.time())
         end = datetime.combine(date.date(), datetime.max.time())
 
-        # Check if already cached
-        existing = self.storage.get_cached_report('daily', date_str)
-        if existing:
-            logger.debug(f"Daily report for {date_str} already cached")
-            return existing
+        # Check if already cached (skip if regenerating)
+        if not is_regeneration:
+            existing = self.storage.get_cached_report('daily', date_str)
+            if existing:
+                logger.debug(f"Daily report for {date_str} already cached")
+                return existing
 
         # Get summaries for this day
         summaries = self.storage.get_summaries_in_range(start, end)
@@ -836,12 +842,18 @@ Brief description."""
         # Compute analytics
         analytics = self._compute_analytics(screenshots, sessions, start, end)
 
-        # Generate executive summary
+        # Build prompt for executive summary
         summary_texts = [s['summary'] for s in summaries if s.get('summary')]
         app_usage_context = self._build_focus_context(focus_events) if focus_events else ""
 
+        prompt_text = None
+        explanation = None
+        tags = []
+        confidence = None
+
         if self.summarizer and self.summarizer.is_available() and summary_texts:
-            prompt = f"""Summarize the day's activities BRIEFLY.
+            # Build the prompt (stored for transparency)
+            prompt_text = f"""Summarize the day's activities BRIEFLY.
 Date: {date.strftime('%A, %B %d, %Y')}
 Total active time: {analytics.total_active_minutes} minutes
 Top apps: {', '.join(a['name'] for a in analytics.top_apps[:5])}
@@ -852,9 +864,15 @@ Activity summaries:
 
 Write 2-4 sentences covering main accomplishments and key projects.
 Be extremely concise. Use specific project/file names from the summaries.
-Do NOT assume unrelated activities are connected."""
+Do NOT assume unrelated activities are connected.
 
-            executive_summary = self.summarizer.generate_text(prompt)
+After your summary, provide:
+EXPLANATION: Brief explanation of your reasoning
+CONFIDENCE: A number 0.0-1.0 indicating confidence
+TAGS: Comma-separated activity tags (e.g., coding, research, meetings)"""
+
+            response = self.summarizer.generate_text(prompt_text)
+            executive_summary, explanation, confidence, tags = self._parse_structured_response(response)
             model_used = self.config.config.summarization.model
         else:
             if summary_texts and (not self.summarizer or not self.summarizer.is_available()):
@@ -878,8 +896,10 @@ Do NOT assume unrelated activities are connected."""
             'busiest_period': analytics.busiest_period,
         }
 
-        # Save to cache
+        # Save to cache with all metadata
         summary_ids = [s['id'] for s in summaries]
+        child_summary_ids = [s['id'] for s in summaries]  # For daily, children are threshold summaries
+
         self.storage.save_cached_report(
             period_type='daily',
             period_date=date_str,
@@ -891,11 +911,55 @@ Do NOT assume unrelated activities are connected."""
             summary_ids=summary_ids,
             model_used=model_used,
             inference_time_ms=inference_time_ms,
+            prompt_text=prompt_text,
+            explanation=explanation,
+            tags=tags if tags else None,
+            confidence=confidence,
+            child_summary_ids=child_summary_ids,
+            is_regeneration=is_regeneration,
         )
 
         logger.info(f"Cached daily report for {date_str} ({inference_time_ms}ms)")
 
         return self.storage.get_cached_report('daily', date_str)
+
+    def _parse_structured_response(self, response: str) -> tuple:
+        """Parse LLM response with optional structured fields.
+
+        Args:
+            response: Raw LLM response text.
+
+        Returns:
+            Tuple of (summary, explanation, confidence, tags)
+        """
+        lines = response.strip().split('\n')
+        summary_lines = []
+        explanation = None
+        confidence = None
+        tags = []
+
+        for line in lines:
+            line_upper = line.upper().strip()
+            if line_upper.startswith('EXPLANATION:'):
+                explanation = line.split(':', 1)[1].strip() if ':' in line else None
+            elif line_upper.startswith('CONFIDENCE:'):
+                try:
+                    conf_str = line.split(':', 1)[1].strip()
+                    confidence = float(conf_str)
+                    confidence = max(0.0, min(1.0, confidence))
+                except (ValueError, IndexError):
+                    confidence = None
+            elif line_upper.startswith('TAGS:'):
+                try:
+                    tags_str = line.split(':', 1)[1].strip()
+                    tags = [t.strip() for t in tags_str.split(',') if t.strip()]
+                except (ValueError, IndexError):
+                    tags = []
+            else:
+                summary_lines.append(line)
+
+        summary = '\n'.join(summary_lines).strip()
+        return summary, explanation, confidence, tags
 
     def generate_missing_daily_reports(self, days_back: int = 7) -> int:
         """Generate cached daily reports for recent days that are missing.
@@ -915,6 +979,474 @@ Do NOT assume unrelated activities are connected."""
         count = 0
         for date_str in missing_dates:
             result = self.generate_daily_report(date_str)
+            if result:
+                count += 1
+
+        return count
+
+    def generate_weekly_report(
+        self,
+        week_str: str,
+        is_regeneration: bool = False
+    ) -> Optional[dict]:
+        """Generate and cache a weekly report for a specific ISO week.
+
+        This synthesizes daily summaries from the week into a weekly summary.
+
+        Args:
+            week_str: ISO week in YYYY-Www format (e.g., "2024-W52").
+            is_regeneration: If True, regenerate even if exists.
+
+        Returns:
+            Cached report dict if generated successfully, None if no data.
+        """
+        import time
+
+        # Parse ISO week string
+        try:
+            # Extract year and week number
+            parts = week_str.split('-W')
+            if len(parts) != 2:
+                raise ValueError("Invalid week format")
+            year = int(parts[0])
+            week_num = int(parts[1])
+
+            # Calculate Monday of the given ISO week
+            from datetime import date
+            jan_4 = date(year, 1, 4)  # Jan 4 is always in week 1
+            week_1_monday = jan_4 - timedelta(days=jan_4.weekday())
+            week_start = week_1_monday + timedelta(weeks=week_num - 1)
+            week_end = week_start + timedelta(days=6)
+
+            start = datetime.combine(week_start, datetime.min.time())
+            end = datetime.combine(week_end, datetime.max.time())
+        except (ValueError, IndexError) as e:
+            logger.error(f"Invalid week format: {week_str} ({e})")
+            return None
+
+        # Check if already cached (skip if regenerating)
+        if not is_regeneration:
+            existing = self.storage.get_cached_report('weekly', week_str)
+            if existing:
+                logger.debug(f"Weekly report for {week_str} already cached")
+                return existing
+
+        # Get daily reports for this week
+        start_date_str = week_start.strftime('%Y-%m-%d')
+        end_date_str = week_end.strftime('%Y-%m-%d')
+        daily_reports = self.storage.get_cached_reports_in_range('daily', start_date_str, end_date_str)
+
+        if not daily_reports:
+            logger.debug(f"No daily reports for {week_str}, skipping")
+            return None
+
+        logger.info(f"Generating weekly report for {week_str} ({len(daily_reports)} daily reports)")
+
+        start_time = time.time()
+
+        # Aggregate analytics from daily reports
+        analytics = self._aggregate_cached_analytics(daily_reports)
+
+        # Build prompt for weekly synthesis
+        daily_summaries = []
+        child_ids = []
+        all_tags = []
+        for dr in sorted(daily_reports, key=lambda x: x['period_date']):
+            if dr.get('executive_summary'):
+                date = datetime.strptime(dr['period_date'], '%Y-%m-%d')
+                daily_summaries.append({
+                    'date': date,
+                    'date_str': date.strftime('%A, %B %d'),
+                    'summary': dr['executive_summary']
+                })
+                child_ids.append(dr['id'])
+                if dr.get('tags'):
+                    all_tags.extend(dr['tags'])
+
+        prompt_text = None
+        explanation = None
+        tags = list(set(all_tags))[:10]  # Deduplicate, limit to 10
+        confidence = None
+
+        if self.summarizer and self.summarizer.is_available() and daily_summaries:
+            prompt_text = f"""Synthesize these daily summaries into a weekly summary.
+Week: {week_start.strftime('%B %d')} to {week_end.strftime('%B %d, %Y')}
+Total active time: {analytics.total_active_minutes // 60} hours across {len(daily_reports)} days
+Top apps: {', '.join(a['name'] for a in analytics.top_apps[:5])}
+
+Daily summaries:
+{chr(10).join(f"**{d['date_str']}**: {d['summary'][:300]}" for d in daily_summaries)}
+
+Write 4-6 sentences covering main themes, patterns, and key accomplishments.
+Identify any recurring work patterns or project focus areas.
+Use specific project names from summaries.
+
+After your summary, provide:
+EXPLANATION: Brief explanation of your reasoning
+CONFIDENCE: A number 0.0-1.0 indicating confidence
+TAGS: Comma-separated activity tags (e.g., coding, research, meetings)"""
+
+            response = self.summarizer.generate_text(prompt_text)
+            executive_summary, explanation, confidence, parsed_tags = self._parse_structured_response(response)
+            if parsed_tags:
+                tags = list(set(tags + parsed_tags))[:10]
+            model_used = self.config.config.summarization.model
+        else:
+            executive_summary = self._fallback_synthesized_summary(daily_summaries, analytics)
+            model_used = None
+
+        inference_time_ms = int((time.time() - start_time) * 1000)
+
+        # Convert analytics to dict for storage
+        analytics_dict = {
+            'total_active_minutes': analytics.total_active_minutes,
+            'total_sessions': analytics.total_sessions,
+            'top_apps': analytics.top_apps,
+            'top_windows': analytics.top_windows,
+            'activity_by_hour': analytics.activity_by_hour,
+            'activity_by_day': analytics.activity_by_day,
+            'busiest_period': analytics.busiest_period,
+        }
+
+        # Save to cache
+        self.storage.save_cached_report(
+            period_type='weekly',
+            period_date=week_str,
+            start_time=start,
+            end_time=end,
+            executive_summary=executive_summary,
+            sections=[],
+            analytics=analytics_dict,
+            summary_ids=None,
+            model_used=model_used,
+            inference_time_ms=inference_time_ms,
+            prompt_text=prompt_text,
+            explanation=explanation,
+            tags=tags if tags else None,
+            confidence=confidence,
+            child_summary_ids=child_ids,
+            is_regeneration=is_regeneration,
+        )
+
+        logger.info(f"Cached weekly report for {week_str} ({inference_time_ms}ms)")
+
+        return self.storage.get_cached_report('weekly', week_str)
+
+    def generate_monthly_report(
+        self,
+        month_str: str,
+        is_regeneration: bool = False
+    ) -> Optional[dict]:
+        """Generate and cache a monthly report for a specific month.
+
+        This synthesizes weekly summaries from the month into a monthly summary.
+
+        Args:
+            month_str: Month in YYYY-MM format (e.g., "2024-12").
+            is_regeneration: If True, regenerate even if exists.
+
+        Returns:
+            Cached report dict if generated successfully, None if no data.
+        """
+        import time
+        import calendar
+
+        # Parse month string
+        try:
+            year, month = map(int, month_str.split('-'))
+            _, last_day = calendar.monthrange(year, month)
+            month_start = datetime(year, month, 1).date()
+            month_end = datetime(year, month, last_day).date()
+
+            start = datetime.combine(month_start, datetime.min.time())
+            end = datetime.combine(month_end, datetime.max.time())
+        except (ValueError, IndexError) as e:
+            logger.error(f"Invalid month format: {month_str} ({e})")
+            return None
+
+        # Check if already cached (skip if regenerating)
+        if not is_regeneration:
+            existing = self.storage.get_cached_report('monthly', month_str)
+            if existing:
+                logger.debug(f"Monthly report for {month_str} already cached")
+                return existing
+
+        # Get weekly reports that overlap with this month
+        # Calculate all ISO weeks in this month
+        weekly_reports = []
+        current_date = month_start
+        seen_weeks = set()
+        while current_date <= month_end:
+            iso_year, iso_week, _ = current_date.isocalendar()
+            week_str = f"{iso_year}-W{iso_week:02d}"
+            if week_str not in seen_weeks:
+                seen_weeks.add(week_str)
+                report = self.storage.get_cached_report('weekly', week_str)
+                if report:
+                    weekly_reports.append(report)
+            current_date += timedelta(days=7)
+
+        if not weekly_reports:
+            # Fall back to daily reports if no weekly reports
+            logger.debug(f"No weekly reports for {month_str}, trying daily reports")
+            start_date_str = month_start.strftime('%Y-%m-%d')
+            end_date_str = month_end.strftime('%Y-%m-%d')
+            daily_reports = self.storage.get_cached_reports_in_range('daily', start_date_str, end_date_str)
+            if not daily_reports:
+                logger.debug(f"No reports for {month_str}, skipping")
+                return None
+
+            # Synthesize from daily reports instead
+            return self._generate_monthly_from_daily(month_str, start, end, daily_reports, is_regeneration)
+
+        logger.info(f"Generating monthly report for {month_str} ({len(weekly_reports)} weekly reports)")
+
+        start_time = time.time()
+
+        # Aggregate analytics from weekly reports
+        analytics = self._aggregate_cached_analytics(weekly_reports)
+
+        # Build prompt for monthly synthesis
+        week_summaries = []
+        child_ids = []
+        all_tags = []
+        for wr in sorted(weekly_reports, key=lambda x: x['period_date']):
+            if wr.get('executive_summary'):
+                week_summaries.append({
+                    'week': wr['period_date'],
+                    'summary': wr['executive_summary']
+                })
+                child_ids.append(wr['id'])
+                if wr.get('tags'):
+                    all_tags.extend(wr['tags'])
+
+        prompt_text = None
+        explanation = None
+        tags = list(set(all_tags))[:10]
+        confidence = None
+
+        month_name = datetime(year, month, 1).strftime('%B %Y')
+
+        if self.summarizer and self.summarizer.is_available() and week_summaries:
+            prompt_text = f"""Synthesize these weekly summaries into a monthly summary.
+Month: {month_name}
+Total active time: {analytics.total_active_minutes // 60} hours across {len(weekly_reports)} weeks
+Top apps: {', '.join(a['name'] for a in analytics.top_apps[:5])}
+
+Weekly summaries:
+{chr(10).join(f"**{w['week']}**: {w['summary'][:400]}" for w in week_summaries)}
+
+Write 5-8 sentences covering:
+- Major themes and recurring patterns
+- Key accomplishments and milestones
+- Project focus areas across the month
+
+Use specific project names from summaries.
+
+After your summary, provide:
+EXPLANATION: Brief explanation of your reasoning
+CONFIDENCE: A number 0.0-1.0 indicating confidence
+TAGS: Comma-separated activity tags (e.g., coding, research, meetings)"""
+
+            response = self.summarizer.generate_text(prompt_text)
+            executive_summary, explanation, confidence, parsed_tags = self._parse_structured_response(response)
+            if parsed_tags:
+                tags = list(set(tags + parsed_tags))[:10]
+            model_used = self.config.config.summarization.model
+        else:
+            executive_summary = f"Monthly activity for {month_name}: {analytics.total_active_minutes // 60} hours across {analytics.total_sessions} sessions."
+            model_used = None
+
+        inference_time_ms = int((time.time() - start_time) * 1000)
+
+        # Convert analytics to dict for storage
+        analytics_dict = {
+            'total_active_minutes': analytics.total_active_minutes,
+            'total_sessions': analytics.total_sessions,
+            'top_apps': analytics.top_apps,
+            'top_windows': analytics.top_windows,
+            'activity_by_hour': analytics.activity_by_hour,
+            'activity_by_day': analytics.activity_by_day,
+            'busiest_period': analytics.busiest_period,
+        }
+
+        # Save to cache
+        self.storage.save_cached_report(
+            period_type='monthly',
+            period_date=month_str,
+            start_time=start,
+            end_time=end,
+            executive_summary=executive_summary,
+            sections=[],
+            analytics=analytics_dict,
+            summary_ids=None,
+            model_used=model_used,
+            inference_time_ms=inference_time_ms,
+            prompt_text=prompt_text,
+            explanation=explanation,
+            tags=tags if tags else None,
+            confidence=confidence,
+            child_summary_ids=child_ids,
+            is_regeneration=is_regeneration,
+        )
+
+        logger.info(f"Cached monthly report for {month_str} ({inference_time_ms}ms)")
+
+        return self.storage.get_cached_report('monthly', month_str)
+
+    def _generate_monthly_from_daily(
+        self,
+        month_str: str,
+        start: datetime,
+        end: datetime,
+        daily_reports: List[dict],
+        is_regeneration: bool = False
+    ) -> Optional[dict]:
+        """Generate monthly report directly from daily reports.
+
+        Used as fallback when weekly reports aren't available.
+        """
+        import time
+
+        logger.info(f"Generating monthly report for {month_str} from {len(daily_reports)} daily reports")
+
+        start_time = time.time()
+
+        # Aggregate analytics from daily reports
+        analytics = self._aggregate_cached_analytics(daily_reports)
+
+        # Build prompt for monthly synthesis
+        daily_summaries = []
+        child_ids = []
+        all_tags = []
+        for dr in sorted(daily_reports, key=lambda x: x['period_date']):
+            if dr.get('executive_summary'):
+                date = datetime.strptime(dr['period_date'], '%Y-%m-%d')
+                daily_summaries.append({
+                    'date': date,
+                    'date_str': date.strftime('%b %d'),
+                    'summary': dr['executive_summary']
+                })
+                child_ids.append(dr['id'])
+                if dr.get('tags'):
+                    all_tags.extend(dr['tags'])
+
+        prompt_text = None
+        explanation = None
+        tags = list(set(all_tags))[:10]
+        confidence = None
+
+        year, month = map(int, month_str.split('-'))
+        month_name = datetime(year, month, 1).strftime('%B %Y')
+
+        if self.summarizer and self.summarizer.is_available() and daily_summaries:
+            # Limit to most significant days to avoid context overflow
+            top_summaries = sorted(daily_summaries, key=lambda x: len(x['summary']), reverse=True)[:15]
+            top_summaries = sorted(top_summaries, key=lambda x: x['date'])
+
+            prompt_text = f"""Synthesize these daily summaries into a monthly summary.
+Month: {month_name}
+Total active time: {analytics.total_active_minutes // 60} hours across {len(daily_reports)} days
+Top apps: {', '.join(a['name'] for a in analytics.top_apps[:5])}
+
+Daily summaries (representative days):
+{chr(10).join(f"**{d['date_str']}**: {d['summary'][:200]}" for d in top_summaries)}
+
+Write 5-8 sentences covering major themes, key accomplishments, and project focus areas.
+Use specific project names from summaries.
+
+After your summary, provide:
+EXPLANATION: Brief explanation of your reasoning
+CONFIDENCE: A number 0.0-1.0 indicating confidence
+TAGS: Comma-separated activity tags (e.g., coding, research, meetings)"""
+
+            response = self.summarizer.generate_text(prompt_text)
+            executive_summary, explanation, confidence, parsed_tags = self._parse_structured_response(response)
+            if parsed_tags:
+                tags = list(set(tags + parsed_tags))[:10]
+            model_used = self.config.config.summarization.model
+        else:
+            executive_summary = f"Monthly activity for {month_name}: {analytics.total_active_minutes // 60} hours across {analytics.total_sessions} sessions."
+            model_used = None
+
+        inference_time_ms = int((time.time() - start_time) * 1000)
+
+        # Convert analytics to dict for storage
+        analytics_dict = {
+            'total_active_minutes': analytics.total_active_minutes,
+            'total_sessions': analytics.total_sessions,
+            'top_apps': analytics.top_apps,
+            'top_windows': analytics.top_windows,
+            'activity_by_hour': analytics.activity_by_hour,
+            'activity_by_day': analytics.activity_by_day,
+            'busiest_period': analytics.busiest_period,
+        }
+
+        # Save to cache
+        self.storage.save_cached_report(
+            period_type='monthly',
+            period_date=month_str,
+            start_time=start,
+            end_time=end,
+            executive_summary=executive_summary,
+            sections=[],
+            analytics=analytics_dict,
+            summary_ids=None,
+            model_used=model_used,
+            inference_time_ms=inference_time_ms,
+            prompt_text=prompt_text,
+            explanation=explanation,
+            tags=tags if tags else None,
+            confidence=confidence,
+            child_summary_ids=child_ids,
+            is_regeneration=is_regeneration,
+        )
+
+        logger.info(f"Cached monthly report for {month_str} ({inference_time_ms}ms)")
+
+        return self.storage.get_cached_report('monthly', month_str)
+
+    def generate_missing_weekly_reports(self, weeks_back: int = 4) -> int:
+        """Generate cached weekly reports for recent weeks that are missing.
+
+        Args:
+            weeks_back: How many weeks to look back.
+
+        Returns:
+            Number of reports generated.
+        """
+        missing_weeks = self.storage.get_missing_weekly_reports(weeks_back)
+        if not missing_weeks:
+            logger.debug("No missing weekly reports")
+            return 0
+
+        logger.info(f"Generating {len(missing_weeks)} missing weekly reports")
+        count = 0
+        for week_str in missing_weeks:
+            result = self.generate_weekly_report(week_str)
+            if result:
+                count += 1
+
+        return count
+
+    def generate_missing_monthly_reports(self, months_back: int = 3) -> int:
+        """Generate cached monthly reports for recent months that are missing.
+
+        Args:
+            months_back: How many months to look back.
+
+        Returns:
+            Number of reports generated.
+        """
+        missing_months = self.storage.get_missing_monthly_reports(months_back)
+        if not missing_months:
+            logger.debug("No missing monthly reports")
+            return 0
+
+        logger.info(f"Generating {len(missing_months)} missing monthly reports")
+        count = 0
+        for month_str in missing_months:
+            result = self.generate_monthly_report(month_str)
             if result:
                 count += 1
 

@@ -172,6 +172,14 @@ def index():
     return redirect('/timeline')
 
 
+@app.route('/screenshots')
+def screenshots():
+    """Redirect to today's screenshot gallery."""
+    from flask import redirect
+    today = date.today().strftime('%Y-%m-%d')
+    return redirect(f'/day/{today}')
+
+
 @app.route('/day/<date_string>')
 def day_view(date_string):
     """Show screenshots for a specific day (YYYY-MM-DD format)."""
@@ -1772,8 +1780,10 @@ def api_get_summary_detail(summary_id):
         else:
             duration_minutes = 0
 
-        # Get focus events for this time range (use overlapping to catch events spanning boundaries)
+        # Get focus events for this time range
         focus_events = []
+        start_dt = None
+        end_dt = None
         if summary.get('start_time') and summary.get('end_time'):
             start_dt = datetime.fromisoformat(summary['start_time']) if isinstance(summary['start_time'], str) else summary['start_time']
             end_dt = datetime.fromisoformat(summary['end_time']) if isinstance(summary['end_time'], str) else summary['end_time']
@@ -1828,11 +1838,57 @@ def api_get_summary_detail(summary_id):
                 if focus_events[i].get('app_name') != focus_events[i-1].get('app_name'):
                     context_switches += 1
 
+        # Build chronological activity log for UI
+        activity_log = []
+        sorted_events = sorted(focus_events, key=lambda e: e.get('start_time', '') or '')
+        for event in sorted_events:
+            app_name = event.get('app_name', 'Unknown')
+            title = event.get('window_title', 'Unknown')
+
+            # Enrich with terminal context
+            terminal_context = event.get('terminal_context')
+            if terminal_context:
+                enriched = _parse_terminal_context_for_ui(terminal_context)
+                if enriched:
+                    title = enriched
+
+            # Truncate long titles
+            if len(title) > 60:
+                title = title[:57] + '...'
+
+            # Get clipped duration
+            event_start = datetime.fromisoformat(event['start_time']) if isinstance(event['start_time'], str) else event['start_time']
+            event_end = datetime.fromisoformat(event['end_time']) if isinstance(event['end_time'], str) else event['end_time']
+
+            # Clip to summary range
+            if start_dt and end_dt:
+                clipped_start = max(event_start, start_dt)
+                clipped_end = min(event_end, end_dt)
+                if clipped_end > clipped_start:
+                    duration = (clipped_end - clipped_start).total_seconds()
+                else:
+                    duration = 0
+            else:
+                duration = event.get('duration_seconds', 0) or 0
+
+            if duration > 0:
+                activity_log.append({
+                    'time': clipped_start.strftime('%H:%M:%S'),
+                    'app_name': app_name,
+                    'title': title,
+                    'duration_seconds': duration,
+                })
+
+        # Calculate total focus time for the activity log
+        total_focus_seconds = sum(e['duration_seconds'] for e in activity_log)
+
         return jsonify({
             "summary": summary,
             "screenshots": screenshots,
             "duration_minutes": duration_minutes,
-            "window_durations": window_durations_list,
+            "window_durations": window_durations_list,  # For Time Breakdown section
+            "activity_log": activity_log,  # Chronological list for Activity Log section
+            "total_focus_seconds": total_focus_seconds,
             "focus_event_count": len(focus_events),
             "context_switches": context_switches,
         })
@@ -2783,5 +2839,262 @@ def api_consolidate_tags():
             "updated_summaries": total_updated,
             "tags_consolidated": tags_consolidated
         })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ==================== Hierarchical Summaries (Daily/Weekly/Monthly) ====================
+
+@app.route('/summary/daily/<date>')
+def hierarchical_summary_daily(date):
+    """Show detail page for a daily summary."""
+    return render_template('hierarchical_summary_detail.html',
+                         period_type='daily',
+                         period_date=date,
+                         page='reports')
+
+
+@app.route('/summary/weekly/<week>')
+def hierarchical_summary_weekly(week):
+    """Show detail page for a weekly summary."""
+    return render_template('hierarchical_summary_detail.html',
+                         period_type='weekly',
+                         period_date=week,
+                         page='reports')
+
+
+@app.route('/summary/monthly/<month>')
+def hierarchical_summary_monthly(month):
+    """Show detail page for a monthly summary."""
+    return render_template('hierarchical_summary_detail.html',
+                         period_type='monthly',
+                         period_date=month,
+                         page='reports')
+
+
+@app.route('/api/hierarchical-summaries/<period_type>/<period_date>')
+def api_get_hierarchical_summary(period_type, period_date):
+    """Get a hierarchical summary (daily/weekly/monthly).
+
+    Returns:
+        Full summary data including child summaries and analytics.
+    """
+    if period_type not in ('daily', 'weekly', 'monthly'):
+        return jsonify({"error": "period_type must be 'daily', 'weekly', or 'monthly'"}), 400
+
+    try:
+        storage = ActivityStorage()
+        report = storage.get_cached_report(period_type, period_date)
+
+        if not report:
+            return jsonify({"error": f"No {period_type} summary found for {period_date}"}), 404
+
+        # Get child summaries for detail view
+        child_summaries = []
+        if report.get('child_summary_ids'):
+            for child_id in report['child_summary_ids'][:20]:  # Limit for performance
+                if period_type == 'daily':
+                    # Children are threshold summaries
+                    child = storage.get_threshold_summary(child_id)
+                else:
+                    # Children are cached reports (daily for weekly, weekly for monthly)
+                    child_type = 'daily' if period_type == 'weekly' else 'weekly'
+                    # Query by ID
+                    with storage.get_connection() as conn:
+                        cursor = conn.execute(
+                            "SELECT * FROM cached_reports WHERE id = ?", (child_id,)
+                        )
+                        row = cursor.fetchone()
+                        child = dict(row) if row else None
+
+                if child:
+                    child_summaries.append({
+                        'id': child.get('id'),
+                        'start_time': child.get('start_time'),
+                        'end_time': child.get('end_time'),
+                        'summary': child.get('summary') or child.get('executive_summary'),
+                        'period_type': child.get('period_type'),
+                        'period_date': child.get('period_date'),
+                    })
+
+        response = {
+            'id': report.get('id'),
+            'period_type': period_type,
+            'period_date': period_date,
+            'start_time': report.get('start_time'),
+            'end_time': report.get('end_time'),
+            'executive_summary': report.get('executive_summary'),
+            'explanation': report.get('explanation'),
+            'tags': report.get('tags'),
+            'confidence': report.get('confidence'),
+            'analytics': report.get('analytics'),
+            'model_used': report.get('model_used'),
+            'inference_time_ms': report.get('inference_time_ms'),
+            'prompt_text': report.get('prompt_text'),
+            'created_at': report.get('created_at'),
+            'regenerated_at': report.get('regenerated_at'),
+            'child_summaries': child_summaries,
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/hierarchical-summaries/<period_type>/<period_date>/regenerate', methods=['POST'])
+def api_regenerate_hierarchical_summary(period_type, period_date):
+    """Queue regeneration of a hierarchical summary.
+
+    Returns:
+        {"status": "queued", "period_type": "daily", "period_date": "2024-12-30"}
+    """
+    if period_type not in ('daily', 'weekly', 'monthly'):
+        return jsonify({"error": "period_type must be 'daily', 'weekly', or 'monthly'"}), 400
+
+    try:
+        # Queue regeneration through the worker
+        worker = get_summarizer_worker()
+        if worker:
+            worker.queue_regenerate_report(period_type, period_date)
+            return jsonify({
+                "status": "queued",
+                "period_type": period_type,
+                "period_date": period_date
+            })
+        else:
+            return jsonify({"error": "Summarizer worker not running"}), 503
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/hierarchical-summaries/<period_type>/<period_date>', methods=['DELETE'])
+def api_delete_hierarchical_summary(period_type, period_date):
+    """Delete a hierarchical summary.
+
+    Returns:
+        {"status": "deleted", "period_type": "daily", "period_date": "2024-12-30"}
+    """
+    if period_type not in ('daily', 'weekly', 'monthly'):
+        return jsonify({"error": "period_type must be 'daily', 'weekly', or 'monthly'"}), 400
+
+    try:
+        storage = ActivityStorage()
+        deleted = storage.delete_cached_report(period_type, period_date)
+
+        if deleted:
+            return jsonify({
+                "status": "deleted",
+                "period_type": period_type,
+                "period_date": period_date
+            })
+        else:
+            return jsonify({"error": f"No {period_type} summary found for {period_date}"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/hierarchical-summaries/<period_type>/<period_date>/generate', methods=['POST'])
+def api_generate_hierarchical_summary(period_type, period_date):
+    """Generate a hierarchical summary on-demand.
+
+    Returns:
+        {"status": "generated", "period_type": "daily", "period_date": "2024-12-30"}
+    """
+    if period_type not in ('daily', 'weekly', 'monthly'):
+        return jsonify({"error": "period_type must be 'daily', 'weekly', or 'monthly'"}), 400
+
+    try:
+        from tracker.reports import ReportGenerator
+        from tracker.config import ConfigManager
+
+        storage = ActivityStorage()
+        config = ConfigManager()
+
+        # Get summarizer from worker if available
+        worker = get_summarizer_worker()
+        summarizer = worker.summarizer if worker else None
+
+        generator = ReportGenerator(storage, summarizer, config)
+
+        if period_type == 'daily':
+            result = generator.generate_daily_report(period_date)
+        elif period_type == 'weekly':
+            result = generator.generate_weekly_report(period_date)
+        else:
+            result = generator.generate_monthly_report(period_date)
+
+        if result:
+            return jsonify({
+                "status": "generated",
+                "period_type": period_type,
+                "period_date": period_date
+            })
+        else:
+            return jsonify({"error": f"No data available to generate {period_type} summary for {period_date}"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/hierarchical-summaries/list/<period_type>')
+def api_list_hierarchical_summaries(period_type):
+    """List available hierarchical summaries of a given type.
+
+    Query params:
+        limit: Maximum number of results (default 30)
+        offset: Offset for pagination (default 0)
+
+    Returns:
+        {"summaries": [...], "total": 45}
+    """
+    if period_type not in ('daily', 'weekly', 'monthly'):
+        return jsonify({"error": "period_type must be 'daily', 'weekly', or 'monthly'"}), 400
+
+    limit = request.args.get('limit', 30, type=int)
+    offset = request.args.get('offset', 0, type=int)
+
+    try:
+        storage = ActivityStorage()
+
+        with storage.get_connection() as conn:
+            # Get total count
+            count_cursor = conn.execute(
+                "SELECT COUNT(*) FROM cached_reports WHERE period_type = ?",
+                (period_type,)
+            )
+            total = count_cursor.fetchone()[0]
+
+            # Get summaries with pagination
+            cursor = conn.execute(
+                """
+                SELECT id, period_type, period_date, start_time, end_time,
+                       executive_summary, tags, confidence, model_used,
+                       inference_time_ms, created_at, regenerated_at
+                FROM cached_reports
+                WHERE period_type = ?
+                ORDER BY period_date DESC
+                LIMIT ? OFFSET ?
+                """,
+                (period_type, limit, offset)
+            )
+
+            summaries = []
+            for row in cursor.fetchall():
+                summary = dict(row)
+                if summary.get('tags'):
+                    import json
+                    summary['tags'] = json.loads(summary['tags'])
+                summaries.append(summary)
+
+        return jsonify({
+            "summaries": summaries,
+            "total": total,
+            "limit": limit,
+            "offset": offset
+        })
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500

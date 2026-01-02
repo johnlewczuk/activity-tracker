@@ -4,330 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Activity Tracker{% endblock %}</title>
+    <link rel="stylesheet" href="/static/styles/base.css">
+    <script src="/static/js/utils.js"></script>
     {% block extra_head %}{% endblock %}
-    <style>
-        :root {
-            color-scheme: light dark;
-            --bg: #0d1117;
-            --surface: #161b22;
-            --surface-2: #21262d;
-            --surface-hover: #30363d;
-            --border: #30363d;
-            --text: #c9d1d9;
-            --muted: #8b949e;
-            --accent: #58a6ff;
-            --accent-soft: #79c0ff;
-            --accent-strong: #1f6feb;
-            --text-inverse: #ffffff;
-            --accent-rgb: 88, 166, 255;
-            --shadow-accent: rgba(88, 166, 255, 0.2);
-            --floating-surface: rgba(33, 38, 45, 0.9);
-            --modal-overlay: rgba(0, 0, 0, 0.85);
-        }
-
-        @media (prefers-color-scheme: light) {
-            :root {
-                color-scheme: light;
-                --bg: #f6f8fa;
-                --surface: #ffffff;
-                --surface-2: #eef1f5;
-                --surface-hover: #d8e0ea;
-                --border: #d0d7de;
-                --text: #1f2328;
-                --muted: #57606a;
-                --accent: #0969da;
-                --accent-soft: #218bff;
-                --accent-strong: #0550ae;
-                --text-inverse: #ffffff;
-                --accent-rgb: 9, 105, 218;
-                --shadow-accent: rgba(9, 105, 218, 0.18);
-                --floating-surface: rgba(255, 255, 255, 0.95);
-                --modal-overlay: rgba(0, 0, 0, 0.6);
-            }
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-        }
-
-        /* Navigation Header */
-        .main-header {
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-
-        .header-container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 0 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 60px;
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 30px;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: var(--text);
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-
-        .logo:hover {
-            color: var(--text);
-        }
-
-        .logo-icon {
-            width: 24px;
-            height: 24px;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        .main-nav {
-            display: flex;
-            gap: 20px;
-            list-style: none;
-        }
-
-        .main-nav a {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 0;
-            color: var(--muted);
-            text-decoration: none;
-            transition: all 0.2s;
-            font-size: 0.9rem;
-            border-bottom: 2px solid transparent;
-        }
-
-        .main-nav a:hover {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-        }
-
-        .main-nav a.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-            font-weight: 600;
-        }
-
-        .nav-icon {
-            width: 16px;
-            height: 16px;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        .header-stats {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            font-size: 0.85rem;
-            color: var(--muted);
-        }
-
-        .stat-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .stat-value {
-            color: var(--accent);
-            font-weight: 600;
-        }
-
-        .help-btn {
-            background: var(--surface-2);
-            color: var(--muted);
-            border: 1px solid var(--border);
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-        }
-
-        .help-btn:hover {
-            background: var(--border);
-            border-color: var(--accent);
-            color: var(--text);
-        }
-
-        /* Keyboard Shortcuts Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: var(--modal-overlay);
-        }
-
-        .modal.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 30px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .modal-header h2 {
-            color: var(--text);
-            font-size: 1.3rem;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--muted);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            transition: all 0.2s;
-        }
-
-        .modal-close:hover {
-            background: var(--surface-2);
-            color: var(--text);
-        }
-
-        .shortcuts-list {
-            list-style: none;
-        }
-
-        .shortcut-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--surface-2);
-        }
-
-        .shortcut-item:last-child {
-            border-bottom: none;
-        }
-
-        .shortcut-desc {
-            color: var(--text);
-            font-size: 0.9rem;
-        }
-
-        .shortcut-key {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 0.85rem;
-            color: var(--accent);
-            min-width: 30px;
-            text-align: center;
-        }
-
-        /* Main Container */
-        .page-container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .header-container {
-                flex-direction: column;
-                height: auto;
-                padding: 10px;
-                gap: 10px;
-            }
-
-            .header-left {
-                width: 100%;
-                flex-direction: column;
-                gap: 10px;
-                align-items: flex-start;
-            }
-
-            .main-nav {
-                width: 100%;
-                flex-wrap: wrap;
-            }
-
-            .header-stats {
-                width: 100%;
-                justify-content: space-between;
-                font-size: 0.75rem;
-            }
-
-            .logo {
-                font-size: 1rem;
-            }
-
-            .stat-item {
-                flex-direction: column;
-                gap: 2px;
-            }
-        }
-
-        {% block extra_styles %}{% endblock %}
-    </style>
+    <style>{% block extra_styles %}{% endblock %}</style>
 </head>
 <body>
     <!-- Skip to main content link for keyboard users -->
@@ -368,15 +48,31 @@
                                 <span>Analytics</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="/reports" {% if page == 'reports' %}class="active" aria-current="page"{% endif %}>
+                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                </svg>
+                                <span>Reports</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/settings" {% if page == 'settings' %}class="active" aria-current="page"{% endif %}>
+                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                </svg>
+                                <span>Settings</span>
+                            </a>
+                        </li>
                     </ul>
                 </nav>
             </div>
-            <div class="header-stats">
-                <div class="stat-item">
-                    <span>Today:</span>
-                    <span class="stat-value" id="todayCount">—</span>
-                </div>
-                <button class="help-btn" onclick="toggleShortcutsModal()" aria-label="Show keyboard shortcuts" aria-expanded="false" aria-controls="shortcutsModal">
+            <div class="header-actions">
+                <button class="help-btn" id="helpBtn" aria-label="Show keyboard shortcuts" aria-expanded="false" aria-controls="shortcutsModal">
                     <span aria-hidden="true">?</span>
                 </button>
             </div>
@@ -393,7 +89,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="shortcutsModalTitle">Keyboard Shortcuts</h2>
-                <button class="modal-close" onclick="toggleShortcutsModal()" aria-label="Close keyboard shortcuts">&times;</button>
+                <button class="modal-close" id="modalCloseBtn" aria-label="Close keyboard shortcuts">&times;</button>
             </div>
             <ul class="shortcuts-list">
                 <li class="shortcut-item">
@@ -485,23 +181,9 @@
             }
         });
 
-        // Fetch today's screenshot count
-        async function fetchTodayCount() {
-            try {
-                const today = '{{ today }}';
-                const response = await fetch(`/api/day/${today}/summary`);
-                const data = await response.json();
-
-                if (data.summary && data.summary.total_screenshots !== undefined) {
-                    document.getElementById('todayCount').textContent = data.summary.total_screenshots;
-                }
-            } catch (error) {
-                console.error('Failed to fetch today count:', error);
-            }
-        }
-
-        // Load today's count on page load
-        fetchTodayCount();
+        // Help button and modal close button
+        document.getElementById('helpBtn').addEventListener('click', toggleShortcutsModal);
+        document.getElementById('modalCloseBtn').addEventListener('click', toggleShortcutsModal);
     </script>
 
     {% block extra_scripts %}{% endblock %}

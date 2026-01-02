@@ -83,6 +83,7 @@ class SummarizationConfig:
         model: Ollama model to use (default: gemma3:12b-it-qat)
         frequency_minutes: How often to generate summaries (default: 15)
         quality_preset: Quick/Balanced/Thorough - sets underlying params (default: balanced)
+        min_focus_seconds: Skip summarization if focus time below this (default: 60)
 
     Content mode (multi-select - what to include in LLM request):
         include_focus_context: Include window titles and time spent (default: True)
@@ -103,6 +104,7 @@ class SummarizationConfig:
     model: str = "gemma3:12b-it-qat"
     frequency_minutes: int = 15  # 5, 15, 30, 60
     quality_preset: str = "balanced"  # quick, balanced, thorough
+    min_focus_seconds: int = 60  # Skip summarization if focus time below this
 
     # Content mode (multi-select checkboxes)
     include_focus_context: bool = True  # Window titles + duration

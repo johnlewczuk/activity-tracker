@@ -59,6 +59,9 @@ class SummarizerWorker:
         self._next_scheduled_run: Optional[datetime] = None
         self._last_summarized_end: Optional[datetime] = None  # Track last summarized period
         self._last_daily_report_date: Optional[str] = None  # Track date of last daily report
+        self._last_weekly_report_week: Optional[str] = None  # Track week of last weekly report
+        self._last_monthly_report_month: Optional[str] = None  # Track month of last monthly report
+        self._startup_backfill_done: bool = False  # Track if startup backfill is done
 
     @property
     def summarizer(self):
@@ -296,15 +299,26 @@ class SummarizerWorker:
 
         Runs summarization at fixed clock times based on frequency_minutes.
         Also processes manual tasks from the queue (regenerate, force).
-        Additionally generates daily reports at midnight.
+        Additionally generates daily, weekly, and monthly reports on schedule.
         """
         logger.info("SummarizerWorker run loop started")
 
         while self._running:
             now = datetime.now()
 
+            # Run startup backfill once (generates missing historical reports)
+            if not self._startup_backfill_done:
+                self._do_startup_backfill()
+                self._startup_backfill_done = True
+
             # Check if we should generate daily reports (at/after midnight)
             self._maybe_generate_daily_reports(now)
+
+            # Check if we should generate weekly reports (Sunday 00:05)
+            self._maybe_generate_weekly_reports(now)
+
+            # Check if we should generate monthly reports (1st of month 00:10)
+            self._maybe_generate_monthly_reports(now)
 
             # Check if it's time for scheduled summarization
             if (self._next_scheduled_run and
@@ -347,6 +361,10 @@ class SummarizerWorker:
                         self._do_summarize_screenshots(payload)
                     elif task_type == 'regenerate':
                         self._do_regenerate(payload)
+                    elif task_type == 'regenerate_report':
+                        # Regenerate a hierarchical report (daily/weekly/monthly)
+                        period_type, period_date = payload
+                        self._do_regenerate_report(period_type, period_date)
                 except Exception as e:
                     logger.error(f"Summarization task failed: {e}", exc_info=True)
                 finally:
@@ -403,15 +421,25 @@ class SummarizerWorker:
         screenshots = self.storage.get_screenshots_in_range(start_time, end_time)
         screenshots = sorted(screenshots, key=lambda s: s['timestamp'])
 
-        # Get focus events for the time range (exclude AFK periods with NULL session_id)
+        # Get focus events for the time range
         focus_events = self.storage.get_focus_events_overlapping_range(
-            start_time, end_time, require_session=True
+            start_time, end_time
         )
         focus_events = self._clip_focus_event_durations(focus_events, start_time, end_time)
 
         # Skip if there's nothing to summarize
         if not screenshots and not focus_events:
             logger.info("No screenshots or focus events in time range, skipping")
+            return
+
+        # Skip if focus time is below minimum threshold (avoid trivial summaries)
+        total_focus_seconds = sum(e.get('duration_seconds', 0) or 0 for e in focus_events)
+        min_focus_seconds = getattr(self.config.config.summarization, 'min_focus_seconds', 60)
+        if total_focus_seconds < min_focus_seconds:
+            logger.info(
+                f"Skipping time range - only {total_focus_seconds:.0f}s of tracked focus "
+                f"(minimum: {min_focus_seconds}s)"
+            )
             return
 
         logger.info(
@@ -709,9 +737,9 @@ class SummarizerWorker:
             start_dt = datetime.fromtimestamp(start_ts)
             end_dt = datetime.fromtimestamp(end_ts)
 
-            # Get focus events that overlap with the range (exclude AFK periods)
+            # Get focus events that overlap with the range
             focus_events = self.storage.get_focus_events_overlapping_range(
-                start_dt, end_dt, require_session=True
+                start_dt, end_dt
             )
 
             # Clip durations to the actual query range
@@ -842,3 +870,191 @@ class SummarizerWorker:
             logger.error(f"Failed to generate daily report for {yesterday}: {e}", exc_info=True)
         finally:
             self._current_task = None
+
+    def _maybe_generate_weekly_reports(self, now: datetime):
+        """Generate weekly report for last week if not already generated.
+
+        Called from the run loop. Checks if we're on Sunday and if so,
+        generates a cached weekly report for the previous week.
+
+        Args:
+            now: Current datetime
+        """
+        # Only run if summarization is enabled
+        if not self.config.config.summarization.enabled:
+            return
+
+        # Only generate on Sunday after 00:05
+        if now.weekday() != 6 or now.hour == 0 and now.minute < 5:
+            return
+
+        # Get last week's ISO week string
+        last_week = now - timedelta(days=7)
+        iso_year, iso_week, _ = last_week.isocalendar()
+        week_str = f"{iso_year}-W{iso_week:02d}"
+
+        # Skip if we already generated this week's report
+        if self._last_weekly_report_week == week_str:
+            return
+
+        # Check if we have a cached report already
+        existing = self.storage.get_cached_report('weekly', week_str)
+        if existing:
+            self._last_weekly_report_week = week_str
+            return
+
+        # Generate the weekly report
+        logger.info(f"Generating weekly report for {week_str}")
+        self._current_task = 'weekly_report'
+
+        try:
+            from .reports import ReportGenerator
+            generator = ReportGenerator(self.storage, self.summarizer, self.config)
+            result = generator.generate_weekly_report(week_str)
+
+            if result:
+                logger.info(f"Generated weekly report for {week_str}")
+            else:
+                logger.info(f"No data for {week_str}, skipping weekly report")
+
+            self._last_weekly_report_week = week_str
+
+        except Exception as e:
+            logger.error(f"Failed to generate weekly report for {week_str}: {e}", exc_info=True)
+        finally:
+            self._current_task = None
+
+    def _maybe_generate_monthly_reports(self, now: datetime):
+        """Generate monthly report for last month if not already generated.
+
+        Called from the run loop. Checks if we're on the 1st of the month
+        and if so, generates a cached monthly report for the previous month.
+
+        Args:
+            now: Current datetime
+        """
+        # Only run if summarization is enabled
+        if not self.config.config.summarization.enabled:
+            return
+
+        # Only generate on the 1st after 00:10
+        if now.day != 1 or now.hour == 0 and now.minute < 10:
+            return
+
+        # Get last month's string
+        last_month = now.replace(day=1) - timedelta(days=1)
+        month_str = last_month.strftime('%Y-%m')
+
+        # Skip if we already generated this month's report
+        if self._last_monthly_report_month == month_str:
+            return
+
+        # Check if we have a cached report already
+        existing = self.storage.get_cached_report('monthly', month_str)
+        if existing:
+            self._last_monthly_report_month = month_str
+            return
+
+        # Generate the monthly report
+        logger.info(f"Generating monthly report for {month_str}")
+        self._current_task = 'monthly_report'
+
+        try:
+            from .reports import ReportGenerator
+            generator = ReportGenerator(self.storage, self.summarizer, self.config)
+            result = generator.generate_monthly_report(month_str)
+
+            if result:
+                logger.info(f"Generated monthly report for {month_str}")
+            else:
+                logger.info(f"No data for {month_str}, skipping monthly report")
+
+            self._last_monthly_report_month = month_str
+
+        except Exception as e:
+            logger.error(f"Failed to generate monthly report for {month_str}: {e}", exc_info=True)
+        finally:
+            self._current_task = None
+
+    def _do_startup_backfill(self):
+        """Generate missing historical reports on startup.
+
+        Backfills missing daily, weekly, and monthly reports for recent periods.
+        This runs once when the worker starts.
+        """
+        if not self.config.config.summarization.enabled:
+            return
+
+        logger.info("Running startup backfill for missing reports...")
+        self._current_task = 'backfill'
+
+        try:
+            from .reports import ReportGenerator
+            generator = ReportGenerator(self.storage, self.summarizer, self.config)
+
+            # Backfill daily reports for last 7 days
+            daily_count = generator.generate_missing_daily_reports(days_back=7)
+            if daily_count > 0:
+                logger.info(f"Backfilled {daily_count} daily reports")
+
+            # Backfill weekly reports for last 4 weeks
+            weekly_count = generator.generate_missing_weekly_reports(weeks_back=4)
+            if weekly_count > 0:
+                logger.info(f"Backfilled {weekly_count} weekly reports")
+
+            # Backfill monthly reports for last 3 months
+            monthly_count = generator.generate_missing_monthly_reports(months_back=3)
+            if monthly_count > 0:
+                logger.info(f"Backfilled {monthly_count} monthly reports")
+
+            total = daily_count + weekly_count + monthly_count
+            if total > 0:
+                logger.info(f"Startup backfill complete: {total} reports generated")
+            else:
+                logger.info("Startup backfill complete: no missing reports")
+
+        except Exception as e:
+            logger.error(f"Startup backfill failed: {e}", exc_info=True)
+        finally:
+            self._current_task = None
+
+    def queue_regenerate_report(self, period_type: str, period_date: str):
+        """Queue a hierarchical report for regeneration.
+
+        Args:
+            period_type: 'daily', 'weekly', or 'monthly'
+            period_date: Period identifier (e.g., '2024-12-30', '2024-W52', '2024-12')
+        """
+        self._pending_queue.put(('regenerate_report', (period_type, period_date)))
+        logger.info(f"Queued {period_type} report {period_date} for regeneration")
+
+    def _do_regenerate_report(self, period_type: str, period_date: str):
+        """Regenerate a hierarchical report with current settings.
+
+        Args:
+            period_type: 'daily', 'weekly', or 'monthly'
+            period_date: Period identifier
+        """
+        logger.info(f"Regenerating {period_type} report for {period_date}...")
+
+        try:
+            from .reports import ReportGenerator
+            generator = ReportGenerator(self.storage, self.summarizer, self.config)
+
+            if period_type == 'daily':
+                result = generator.generate_daily_report(period_date, is_regeneration=True)
+            elif period_type == 'weekly':
+                result = generator.generate_weekly_report(period_date, is_regeneration=True)
+            elif period_type == 'monthly':
+                result = generator.generate_monthly_report(period_date, is_regeneration=True)
+            else:
+                logger.error(f"Unknown period type: {period_type}")
+                return
+
+            if result:
+                logger.info(f"Regenerated {period_type} report for {period_date}")
+            else:
+                logger.warning(f"No data available to regenerate {period_type} report for {period_date}")
+
+        except Exception as e:
+            logger.error(f"Failed to regenerate {period_type} report for {period_date}: {e}", exc_info=True)

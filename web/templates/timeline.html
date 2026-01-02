@@ -1,138 +1,35 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Activity Timeline - Activity Tracker</title>
-    <link rel="stylesheet" href="/static/styles/base.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="/static/js/utils.js"></script>
-    <style>
-        :root {
-            color-scheme: light dark;
-            --bg: #0d1117;
-            --surface: #161b22;
-            --surface-2: #21262d;
-            --border: #30363d;
-            --text: #c9d1d9;
-            --muted: #8b949e;
-            --accent: #58a6ff;
-            --accent-strong: #1f6feb;
-            --accent-soft: #79c0ff;
-            --danger: #f85149;
-            --intensity-0: var(--surface-2);
-            --intensity-1: #0e4429;
-            --intensity-2: #006d32;
-            --intensity-3: #26a641;
-            --intensity-4: #39d353;
-            --text-inverse: #ffffff;
-            --accent-rgb: 88, 166, 255;
-            --shadow-accent: rgba(88, 166, 255, 0.2);
-            --modal-overlay: rgba(0, 0, 0, 0.95);
-            --floating-surface: rgba(33, 38, 45, 0.9);
-        }
+{% extends "base.html" %}
 
-        @media (prefers-color-scheme: light) {
-            :root {
-                color-scheme: light;
-                --bg: #f6f8fa;
-                --surface: #ffffff;
-                --surface-2: #eef1f5;
-                --border: #d0d7de;
-                --text: #1f2328;
-                --muted: #57606a;
-                --accent: #0969da;
-                --accent-strong: #0550ae;
-                --accent-soft: #218bff;
-                --danger: #cf222e;
-                --intensity-0: #e7edf3;
-                --intensity-1: #9be9a8;
-                --intensity-2: #40c463;
-                --intensity-3: #30a14e;
-                --intensity-4: #216e39;
-                --text-inverse: #ffffff;
-                --accent-rgb: 9, 105, 218;
-                --shadow-accent: rgba(9, 105, 218, 0.18);
-                --modal-overlay: rgba(0, 0, 0, 0.7);
-                --floating-surface: rgba(255, 255, 255, 0.95);
-            }
-        }
+{% block title %}Activity Timeline - Activity Tracker{% endblock %}
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-        }
+{% block extra_styles %}
+/* Timeline-specific intensity colors for heatmap */
+:root {
+    --intensity-0: var(--surface-2);
+    --intensity-1: #0e4429;
+    --intensity-2: #006d32;
+    --intensity-3: #26a641;
+    --intensity-4: #39d353;
+}
+@media (prefers-color-scheme: light) {
+    :root {
+        --intensity-0: #e7edf3;
+        --intensity-1: #9be9a8;
+        --intensity-2: #40c463;
+        --intensity-3: #30a14e;
+        --intensity-4: #216e39;
+    }
+}
 
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .timeline-wrapper {
+.timeline-wrapper {
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 160px);
+            height: calc(100vh - 110px);
             overflow: hidden;
-        }
-
-        header {
-            margin-bottom: 20px;
-            flex-shrink: 0;
-        }
-
-        h1 {
-            font-size: 2rem;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 10px;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 20px;
-            margin-top: 15px;
-        }
-
-        .nav-links a {
-            color: var(--muted);
-            text-decoration: none;
-            font-size: 0.9rem;
-            padding: 8px 0;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            border-bottom: 2px solid transparent;
-        }
-
-        .nav-links a:hover {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-        }
-
-        .nav-links a.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-            font-weight: 600;
-        }
-
-        .nav-icon {
-            width: 16px;
-            height: 16px;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
         }
 
         .today-link {
@@ -1625,16 +1522,10 @@
             cursor: not-allowed;
         }
 
-        .screen-count {
-            cursor: pointer;
+        .duration-display {
             padding: 2px 6px;
             border-radius: 4px;
-            transition: background 0.2s;
-        }
-
-        .screen-count:hover {
-            background: var(--accent);
-            color: var(--text-inverse);
+            font-size: 0.85rem;
         }
 
         /* Horizontal Timeline (ActivityWatch style) */
@@ -1981,7 +1872,7 @@
         }
 
         /* Lane colors */
-        .lane-event.session { background: #3fb950; }
+        .lane-event.session, .lane-event.active { background: #3fb950; }
         .lane-event.afk { background: #484f58; }
 
         /* Screenshot markers overlaid on activity lane */
@@ -2210,7 +2101,7 @@
             white-space: nowrap;
         }
 
-        .summary-screens {
+        .summary-duration {
             text-align: center;
             color: var(--muted);
         }
@@ -2551,16 +2442,9 @@
         .explanation-modal-content button {
             margin-top: 16px;
         }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Activity Tracker</h1>
-            {% set active_page = 'timeline' %}
-            {% include 'partials/_nav.html' %}
-        </header>
+{% endblock %}
 
+{% block content %}
         <div class="timeline-wrapper">
             <div class="timeline-layout">
             <div class="calendar-panel">
@@ -2635,9 +2519,9 @@
             <div class="detail-panel">
                 <div class="detail-header">
                     <div class="date-selector">
-                        <button id="prevDayBtn" onclick="navigateDay(-1)" title="Previous day">←</button>
+                        <button id="prevDayBtn" title="Previous day">←</button>
                         <h2 id="selectedDate">Select a day</h2>
-                        <button id="nextDayBtn" onclick="navigateDay(1)" title="Next day">→</button>
+                        <button id="nextDayBtn" title="Next day">→</button>
                         <input type="date" id="datePickerInput" class="date-picker-input"
                                title="Jump to date" aria-label="Jump to specific date">
                     </div>
@@ -2695,22 +2579,10 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
+{% block extra_scripts %}
     <script>
-        function getThemeColors() {
-            const styles = getComputedStyle(document.documentElement);
-            const read = (name) => styles.getPropertyValue(name).trim();
-            return {
-                accent: read('--accent'),
-                accentStrong: read('--accent-strong'),
-                accentSoft: read('--accent-soft'),
-                border: read('--border'),
-                muted: read('--muted'),
-                surface: read('--surface'),
-                text: read('--text')
-            };
-        }
-
         function applyTimelineChartTheme() {
             if (!state.chart) return;
             const theme = getThemeColors();
@@ -2731,14 +2603,6 @@
             tooltip.bodyColor = theme.text;
 
             state.chart.update();
-        }
-
-        // Get local date string in YYYY-MM-DD format (not UTC)
-        function getLocalDateString(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
         }
 
         // State management
@@ -2819,27 +2683,32 @@
                         </div>
                         <div class="timeline-controls">
                             <div class="time-presets">
-                                <button class="preset-btn" data-start="6" data-end="12" onclick="applyTimePreset(6, 12)">Morning</button>
-                                <button class="preset-btn" data-start="12" data-end="18" onclick="applyTimePreset(12, 18)">Afternoon</button>
-                                <button class="preset-btn" data-start="18" data-end="24" onclick="applyTimePreset(18, 24)">Evening</button>
-                                <button class="preset-btn" data-start="9" data-end="17" onclick="applyTimePreset(9, 17)">Work</button>
+                                <button class="preset-btn" data-start="6" data-end="12">Morning</button>
+                                <button class="preset-btn" data-start="12" data-end="18">Afternoon</button>
+                                <button class="preset-btn" data-start="18" data-end="24">Evening</button>
+                                <button class="preset-btn" data-start="9" data-end="17">Work</button>
                             </div>
-                            <button class="btn-generate-missing" id="btnGenerateMissing" onclick="triggerSummarization()" title="Generate summaries for unsummarized screenshots on this day">
+                            <button class="btn-generate-missing" id="btnGenerateMissing" title="Generate summaries for unsummarized screenshots on this day">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                                 Generate Missing
                             </button>
-                            <button onclick="zoomTimeline(0.5)">Zoom In</button>
-                            <button onclick="zoomTimeline(2)">Zoom Out</button>
-                            <button onclick="resetTimelineZoom()">Reset</button>
+                            <button id="zoomInBtn">Zoom In</button>
+                            <button id="zoomOutBtn">Zoom Out</button>
+                            <button id="resetZoomBtn">Reset</button>
                         </div>
                     </div>
                     <div class="timeline-body">
                         <div class="timeline-lanes" id="timelineLanes">
+                            <div class="timeline-lane" data-lane="sessions">
+                                <div class="lane-label">Sessions</div>
+                                <div class="lane-content">
+                                    <div class="lane-events" id="laneSessions"></div>
+                                </div>
+                            </div>
                             <div class="timeline-lane" data-lane="activity">
                                 <div class="lane-label">Activity</div>
                                 <div class="lane-content">
                                     <div class="lane-events" id="laneAppEvents"></div>
-                                    <div class="lane-screenshots" id="laneScreenshotMarkers"></div>
                                 </div>
                             </div>
                             <div class="timeline-lane" data-lane="summaries">
@@ -2860,7 +2729,7 @@
                         <div class="filmstrip-header">
                             <h4>Screenshots</h4>
                             <span class="filmstrip-count" id="filmstripCount">0 in view</span>
-                            <button class="toggle-filmstrip" id="toggleFilmstrip" onclick="toggleFilmstrip()">Hide</button>
+                            <button class="toggle-filmstrip" id="toggleFilmstrip">Hide</button>
                         </div>
                         <div class="filmstrip-container" id="filmstripContainer"></div>
                     </div>
@@ -2896,6 +2765,51 @@
             const durationToWidth = (durationMs) => {
                 return (durationMs / viewDuration) * containerWidth;
             };
+
+            // Render Active lane (sessions only, no AFK gaps)
+            const sessionsContainer = document.getElementById('laneSessions');
+            if (sessionsContainer) {
+                sessionsContainer.innerHTML = '';
+
+                sessions.forEach(session => {
+                    const startTime = new Date(session.start_time).getTime() - dayStart;
+                    const endTime = session.end_time
+                        ? new Date(session.end_time).getTime() - dayStart
+                        : startTime + (session.duration_minutes * 60 * 1000);
+
+                    // Skip if outside view
+                    if (endTime < viewStart || startTime > viewEnd) return;
+
+                    const x = timeToX(Math.max(startTime, viewStart));
+                    const width = durationToWidth(Math.min(endTime, viewEnd) - Math.max(startTime, viewStart));
+
+                    if (width < 1) return;
+
+                    const el = document.createElement('div');
+                    el.className = 'lane-event active';
+                    el.style.left = `${x}px`;
+                    el.style.width = `${width}px`;
+                    el.style.background = 'var(--success, #238636)';
+
+                    if (width > 40) {
+                        el.innerHTML = `<span class="lane-event-label">Active</span>`;
+                    }
+
+                    // Tooltip on hover
+                    const durationMs = endTime - startTime;
+                    el.addEventListener('mouseenter', (e) => {
+                        showTimelineTooltip(e, {
+                            app_name: 'Active Session',
+                            window_title: `${session.screenshot_count || 0} screenshots, ${session.unique_windows || 0} windows`,
+                            start_time: session.start_time,
+                            duration_seconds: durationMs / 1000
+                        });
+                    });
+                    el.addEventListener('mouseleave', hideTimelineTooltip);
+
+                    sessionsContainer.appendChild(el);
+                });
+            }
 
             // Render activity lane (focus events)
             const appsContainer = document.getElementById('laneAppEvents');
@@ -2933,42 +2847,6 @@
                     el.addEventListener('mouseleave', hideTimelineTooltip);
 
                     appsContainer.appendChild(el);
-                });
-            }
-
-            // Render screenshot markers (overlaid on activity lane)
-            const screenshotMarkersContainer = document.getElementById('laneScreenshotMarkers');
-            if (screenshotMarkersContainer) {
-                screenshotMarkersContainer.innerHTML = '';
-                screenshots.forEach(screenshot => {
-                    const timestamp = screenshot.timestamp * 1000; // Convert to ms
-                    const timeMs = timestamp - dayStart;
-
-                    // Skip if outside view
-                    if (timeMs < viewStart || timeMs > viewEnd) return;
-
-                    const x = timeToX(timeMs);
-
-                    const marker = document.createElement('div');
-                    marker.className = 'screenshot-marker';
-                    marker.style.left = `${x - 1.5}px`; // Center the 3px marker
-                    marker.dataset.screenshotId = screenshot.id;
-
-                    marker.addEventListener('click', () => {
-                        window.showModalWithScreenshots(screenshot.id, screenshots);
-                    });
-
-                    marker.addEventListener('mouseenter', (e) => {
-                        showTimelineTooltip(e, {
-                            app_name: screenshot.app_name,
-                            window_title: screenshot.window_title,
-                            start_time: new Date(timestamp).toISOString(),
-                            duration_seconds: 0
-                        }, screenshot.id);
-                    });
-                    marker.addEventListener('mouseleave', hideTimelineTooltip);
-
-                    screenshotMarkersContainer.appendChild(marker);
                 });
             }
 
@@ -3084,9 +2962,27 @@
             }
         }
 
+        // Store references to document-level listeners for cleanup
+        let timelineMouseMoveHandler = null;
+        let timelineMouseUpHandler = null;
+
+        function cleanupTimelineListeners() {
+            if (timelineMouseMoveHandler) {
+                document.removeEventListener('mousemove', timelineMouseMoveHandler);
+                timelineMouseMoveHandler = null;
+            }
+            if (timelineMouseUpHandler) {
+                document.removeEventListener('mouseup', timelineMouseUpHandler);
+                timelineMouseUpHandler = null;
+            }
+        }
+
         function setupTimelineInteractions() {
             const lanes = document.getElementById('timelineLanes');
             if (!lanes) return;
+
+            // Clean up any existing document-level listeners
+            cleanupTimelineListeners();
 
             // Pan with drag
             lanes.addEventListener('mousedown', (e) => {
@@ -3096,7 +2992,7 @@
                 lanes.style.cursor = 'grabbing';
             });
 
-            document.addEventListener('mousemove', (e) => {
+            timelineMouseMoveHandler = (e) => {
                 if (!state.timeline.isDragging) return;
 
                 const dx = e.clientX - state.timeline.dragStartX;
@@ -3120,15 +3016,18 @@
                 state.timeline.viewStart = newStart;
                 state.timeline.viewEnd = newEnd;
                 updateTimelineView();
-            });
+            };
 
-            document.addEventListener('mouseup', () => {
+            timelineMouseUpHandler = () => {
                 if (state.timeline.isDragging) {
                     state.timeline.isDragging = false;
                     const lanes = document.getElementById('timelineLanes');
                     if (lanes) lanes.style.cursor = 'grab';
                 }
-            });
+            };
+
+            document.addEventListener('mousemove', timelineMouseMoveHandler);
+            document.addEventListener('mouseup', timelineMouseUpHandler);
 
             // Zoom with scroll
             lanes.addEventListener('wheel', (e) => {
@@ -3136,6 +3035,30 @@
                 const zoomFactor = e.deltaY > 0 ? 1.2 : 0.8;
                 zoomTimelineAt(e.clientX, zoomFactor);
             });
+
+            // Timeline control buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    applyTimePreset(parseInt(btn.dataset.start), parseInt(btn.dataset.end));
+                });
+            });
+
+            const generateMissingBtn = document.getElementById('btnGenerateMissing');
+            if (generateMissingBtn) {
+                generateMissingBtn.addEventListener('click', triggerSummarization);
+            }
+
+            const zoomInBtn = document.getElementById('zoomInBtn');
+            if (zoomInBtn) zoomInBtn.addEventListener('click', () => zoomTimeline(0.5));
+
+            const zoomOutBtn = document.getElementById('zoomOutBtn');
+            if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => zoomTimeline(2));
+
+            const resetZoomBtn = document.getElementById('resetZoomBtn');
+            if (resetZoomBtn) resetZoomBtn.addEventListener('click', resetTimelineZoom);
+
+            const toggleFilmstripBtn = document.getElementById('toggleFilmstrip');
+            if (toggleFilmstripBtn) toggleFilmstripBtn.addEventListener('click', toggleFilmstrip);
         }
 
         function zoomTimeline(factor) {
@@ -3334,7 +3257,7 @@
                 const appName = s.app_name || 'Unknown';
 
                 return `
-                    <div class="filmstrip-item" onclick="window.showModalWithScreenshots(${s.id}, state.timeline.screenshots)">
+                    <div class="filmstrip-item" data-screenshot-id="${s.id}">
                         <img class="filmstrip-thumb" src="/thumbnail/${s.id}" alt="Screenshot at ${timeStr}" loading="lazy">
                         <div class="filmstrip-meta">
                             <span class="filmstrip-time">${timeStr}</span>
@@ -3454,7 +3377,7 @@
 
                 return `
                     <div class="week-day-column ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}"
-                         onclick="selectDateFromWeek('${dateStr}')" data-date="${dateStr}">
+                         data-date="${dateStr}">
                         <div class="week-day-header">
                             <div class="week-day-name">${day.toLocaleDateString('en-US', {weekday: 'short'})}</div>
                             <div class="week-day-date">${day.getDate()}</div>
@@ -3585,12 +3508,32 @@
                     selectDate(todayStr);
                 }
             });
+
+            // Cleanup on page unload to prevent memory leaks
+            window.addEventListener('pagehide', cleanupPageResources);
         });
+
+        function cleanupPageResources() {
+            cleanupTimelineListeners();
+            stopStatusPolling();
+            if (state.pollInterval) {
+                clearInterval(state.pollInterval);
+                state.pollInterval = null;
+            }
+        }
 
         // Event listeners
         function setupEventListeners() {
-            document.getElementById('prevMonth').addEventListener('click', () => changeMonth(-1));
-            document.getElementById('nextMonth').addEventListener('click', () => changeMonth(1));
+            const prevMonth = document.getElementById('prevMonth');
+            const nextMonth = document.getElementById('nextMonth');
+            if (prevMonth) prevMonth.addEventListener('click', () => changeMonth(-1));
+            if (nextMonth) nextMonth.addEventListener('click', () => changeMonth(1));
+
+            // Day navigation buttons
+            const prevDayBtn = document.getElementById('prevDayBtn');
+            const nextDayBtn = document.getElementById('nextDayBtn');
+            if (prevDayBtn) prevDayBtn.addEventListener('click', () => navigateDay(-1));
+            if (nextDayBtn) nextDayBtn.addEventListener('click', () => navigateDay(1));
 
             // Date picker input handler
             const datePicker = document.getElementById('datePickerInput');
@@ -3669,6 +3612,97 @@
                         break;
                 }
             });
+
+            // Event delegation for dynamically generated content
+            document.addEventListener('click', function(e) {
+                // Week day column click
+                const weekDayCol = e.target.closest('.week-day-column');
+                if (weekDayCol && weekDayCol.dataset.date) {
+                    selectDateFromWeek(weekDayCol.dataset.date);
+                    return;
+                }
+
+                // Filmstrip item click
+                const filmstripItem = e.target.closest('.filmstrip-item');
+                if (filmstripItem && filmstripItem.dataset.screenshotId) {
+                    window.showModalWithScreenshots(parseInt(filmstripItem.dataset.screenshotId), state.timeline.screenshots);
+                    return;
+                }
+
+                // Generate button click (for individual hours)
+                if (e.target.classList.contains('generate-btn') && e.target.dataset.hour) {
+                    e.stopPropagation();
+                    generateSummaries([parseInt(e.target.dataset.hour)]);
+                    return;
+                }
+
+                // Generate All button click
+                if (e.target.id === 'generateAllBtn' || e.target.closest('#generateAllBtn')) {
+                    generateSummaries();
+                    return;
+                }
+
+                // Bulk action buttons
+                if (e.target.id === 'bulkRegenerateBtn' || e.target.closest('#bulkRegenerateBtn')) {
+                    bulkRegenerate();
+                    return;
+                }
+                if (e.target.id === 'bulkDeleteBtn' || e.target.closest('#bulkDeleteBtn')) {
+                    bulkDelete();
+                    return;
+                }
+                if (e.target.id === 'bulkCancelBtn' || e.target.closest('#bulkCancelBtn')) {
+                    clearSelection();
+                    return;
+                }
+
+                // Summary table row click
+                const tableRow = e.target.closest('tr[data-summary-id]');
+                if (tableRow && !e.target.closest('.checkbox-cell') && !e.target.classList.contains('explanation-icon')) {
+                    handleRowClick(e, parseInt(tableRow.dataset.summaryId));
+                    return;
+                }
+
+                // Explanation icon click
+                if (e.target.classList.contains('explanation-icon')) {
+                    e.stopPropagation();
+                    showExplanation(e.target.dataset.explanation);
+                    return;
+                }
+
+                // Summary checkbox click
+                if (e.target.classList.contains('summary-checkbox') && e.target.dataset.id) {
+                    handleCheckboxClick(e, parseInt(e.target.dataset.id));
+                    return;
+                }
+
+                // Tag badge click
+                if (e.target.classList.contains('tag-badge') || e.target.closest('.tag-badge')) {
+                    const badge = e.target.classList.contains('tag-badge') ? e.target : e.target.closest('.tag-badge');
+                    toggleTagFilter(badge.dataset.tag);
+                    return;
+                }
+            });
+
+            // Select all checkbox
+            document.addEventListener('change', function(e) {
+                if (e.target.id === 'selectAllCheckbox') {
+                    toggleSelectAll(e);
+                }
+            });
+
+            // Tag badge hover effects via delegation
+            document.addEventListener('mouseenter', function(e) {
+                if (e.target.classList.contains('tag-badge')) {
+                    highlightTagRows(e.target.dataset.tag);
+                }
+            }, true);
+
+            document.addEventListener('mouseleave', function(e) {
+                if (e.target.classList.contains('tag-badge')) {
+                    clearTagHighlight();
+                }
+            }, true);
         }
 
         // Change month
@@ -4033,7 +4067,7 @@
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <span class="summary-coverage" id="summaryCoverage">${hoursSummarized} of ${hoursWithScreenshots} hours summarized</span>
-                            <button class="generate-btn" id="generateAllBtn" onclick="generateSummaries()" ${hoursSummarized === hoursWithScreenshots ? 'style="display:none"' : ''}>
+                            <button class="generate-btn" id="generateAllBtn" ${hoursSummarized === hoursWithScreenshots ? 'style="display:none"' : ''}>
                                 Generate All
                             </button>
                         </div>
@@ -4218,7 +4252,7 @@
                         summaryDiv.innerHTML = `
                             <span class="summary-icon" style="opacity: 0.5;">💬</span>
                             <span class="summary-text summary-placeholder">No summary</span>
-                            <button class="generate-btn" onclick="event.stopPropagation(); generateSummaries([${hour}])">Generate</button>
+                            <button class="generate-btn" data-hour="${hour}">Generate</button>
                         `;
                     }
 
@@ -4490,15 +4524,15 @@
                 const data = await response.json();
 
                 if (data.status === 'started') {
-                    // Start polling for status
-                    startStatusPolling();
+                    // Start polling for generation status
+                    startGenerationPolling();
                 } else if (data.status === 'nothing_to_do') {
                     if (btn) {
                         btn.style.display = 'none';
                     }
                 } else if (data.status === 'already_running') {
                     // Already running, start polling
-                    startStatusPolling();
+                    startGenerationPolling();
                 }
             } catch (error) {
                 console.error('Failed to start summarization:', error);
@@ -4509,8 +4543,8 @@
             }
         }
 
-        // Poll for summarization status
-        function startStatusPolling() {
+        // Poll for generation status (distinct from summarization status polling)
+        function startGenerationPolling() {
             if (state.pollInterval) {
                 clearInterval(state.pollInterval);
             }
@@ -4813,6 +4847,30 @@
         }
 
         // Render the threshold summaries panel with hourly sections
+        // Calculate active time within a time range from sessions
+        function getActiveTimeInRange(startTime, endTime) {
+            const sessions = state.timeline?.sessions || [];
+            const rangeStart = new Date(startTime).getTime();
+            const rangeEnd = new Date(endTime).getTime();
+
+            let activeMs = 0;
+            sessions.forEach(session => {
+                const sessStart = new Date(session.start_time).getTime();
+                const sessEnd = session.end_time
+                    ? new Date(session.end_time).getTime()
+                    : sessStart + (session.duration_minutes * 60 * 1000);
+
+                // Check for overlap
+                if (sessEnd > rangeStart && sessStart < rangeEnd) {
+                    const overlapStart = Math.max(sessStart, rangeStart);
+                    const overlapEnd = Math.min(sessEnd, rangeEnd);
+                    activeMs += (overlapEnd - overlapStart);
+                }
+            });
+
+            return activeMs;
+        }
+
         function renderThresholdSummaries() {
             const summaries = state.thresholdSummaries || [];
             const hourlyData = state.hourlyData || [];
@@ -4858,15 +4916,15 @@
                 <div class="bulk-action-bar" id="bulkActionBar">
                     <span class="selected-count"><span id="selectedCount">0</span> selected</span>
                     <div class="bulk-actions">
-                        <button class="btn-bulk" onclick="bulkRegenerate()">
+                        <button class="btn-bulk" id="bulkRegenerateBtn">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                             Regenerate
                         </button>
-                        <button class="btn-bulk danger" onclick="bulkDelete()">
+                        <button class="btn-bulk danger" id="bulkDeleteBtn">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                             Delete
                         </button>
-                        <button class="btn-bulk btn-cancel" onclick="clearSelection()">Cancel</button>
+                        <button class="btn-bulk btn-cancel" id="bulkCancelBtn">Cancel</button>
                     </div>
                 </div>
             `;
@@ -4877,11 +4935,11 @@
                     <table class="summaries-table">
                         <thead>
                             <tr>
-                                <th style="width: 40px;"><input type="checkbox" class="summary-checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(event)"></th>
+                                <th style="width: 40px;"><input type="checkbox" class="summary-checkbox" id="selectAllCheckbox"></th>
                                 <th>Time</th>
                                 <th>Summary</th>
                                 <th style="width: 60px;">Conf</th>
-                                <th style="width: 80px;">Screens</th>
+                                <th style="width: 80px;">Duration</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -4913,9 +4971,11 @@
                     const startDate = new Date(summary.start_time);
                     const endDate = new Date(summary.end_time);
                     const startTime = startDate.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true});
-                    const durationMs = endDate - startDate;
-                    const durationMins = Math.round(durationMs / 60000);
-                    const durationStr = durationMins < 1 ? '<1m' : `${durationMins}m`;
+
+                    // Calculate active time from sessions overlapping this summary's time range
+                    const activeMs = getActiveTimeInRange(summary.start_time, summary.end_time);
+                    const activeMins = Math.round(activeMs / 60000);
+                    const durationStr = activeMins < 1 ? '<1m' : `${activeMins}m`;
 
                     // Confidence indicator
                     const conf = summary.confidence;
@@ -4937,18 +4997,18 @@
                     const tags = summary.tags || [];
 
                     html += `
-                        <tr data-summary-id="${summary.id}" data-hour="${hour}" data-tags="${tags.join(',')}" onclick="handleRowClick(event, ${summary.id})">
-                            <td onclick="event.stopPropagation()">
-                                <input type="checkbox" class="summary-checkbox" data-id="${summary.id}" onclick="handleCheckboxClick(event, ${summary.id})">
+                        <tr data-summary-id="${summary.id}" data-hour="${hour}" data-tags="${tags.join(',')}">
+                            <td class="checkbox-cell">
+                                <input type="checkbox" class="summary-checkbox" data-id="${summary.id}">
                             </td>
                             <td class="summary-time">${startTime}</td>
                             <td class="summary-text-cell">
                                 <span title="${summary.summary}">${summary.summary}</span>
-                                ${summary.explanation ? `<span class="explanation-icon" onclick="event.stopPropagation(); showExplanation('${explanationEscaped}')" title="Show explanation">ℹ️</span>` : ''}
+                                ${summary.explanation ? `<span class="explanation-icon" data-explanation="${explanationEscaped}" title="Show explanation">ℹ️</span>` : ''}
                             </td>
                             <td class="summary-confidence">${confDisplay}</td>
-                            <td class="summary-screens">
-                                <span class="screen-count" onclick="event.stopPropagation(); viewSummaryScreenshots(${summary.id})" title="View screenshots">${summary.screenshot_count}</span>
+                            <td class="summary-duration">
+                                <span class="duration-display" title="${activeMins} minutes active">${durationStr}</span>
                             </td>
                         </tr>
                     `;
@@ -4998,8 +5058,8 @@
 
             tagsSection.style.display = 'block';
             tagsList.innerHTML = sortedTags.map(([tag, count]) =>
-                `<span class="tag-badge" data-tag="${tag}" onclick="toggleTagFilter('${tag}')" onmouseenter="highlightTagRows('${tag}')" onmouseleave="clearTagHighlight()">
-                    ${tag}<span class="tag-count">${count}</span>
+                `<span class="tag-badge" data-tag="${escapeHtml(tag)}">
+                    ${escapeHtml(tag)}<span class="tag-count">${count}</span>
                 </span>`
             ).join('');
 
@@ -5088,11 +5148,13 @@
                 <div class="explanation-modal-content">
                     <h3>Model Explanation</h3>
                     <p>${text}</p>
-                    <button onclick="this.closest('.explanation-modal').remove()">Close</button>
+                    <button class="explanation-close-btn">Close</button>
                 </div>
             `;
             modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.remove();
+                if (e.target === modal || e.target.classList.contains('explanation-close-btn')) {
+                    modal.remove();
+                }
             });
             document.body.appendChild(modal);
         }
@@ -5389,19 +5451,26 @@
                     <div class="modal-content">
                         <div class="modal-header">
                             <h3>Summary History</h3>
-                            <button class="modal-close" onclick="closeSummaryHistory()">&times;</button>
+                            <button class="modal-close" id="historyModalClose">&times;</button>
                         </div>
                         <div class="modal-body">
                             ${versions.length > 0 ? versionsHtml : '<p>No version history available.</p>'}
                         </div>
                         <div class="modal-footer">
-                            <button onclick="regenerateSummary(${data.original_id}); closeSummaryHistory();">
+                            <button id="historyRegenBtn" data-original-id="${data.original_id}">
                                 Regenerate with Current Settings
                             </button>
-                            <button class="secondary" onclick="closeSummaryHistory()">Close</button>
+                            <button class="secondary" id="historyCloseBtn">Close</button>
                         </div>
                     </div>
                 `;
+
+                document.getElementById('historyModalClose').addEventListener('click', closeSummaryHistory);
+                document.getElementById('historyCloseBtn').addEventListener('click', closeSummaryHistory);
+                document.getElementById('historyRegenBtn').addEventListener('click', function() {
+                    regenerateSummary(parseInt(this.dataset.originalId));
+                    closeSummaryHistory();
+                });
 
                 modal.style.display = 'flex';
             } catch (error) {
@@ -5440,5 +5509,4 @@
             }
         }
     </script>
-</body>
-</html>
+{% endblock %}
