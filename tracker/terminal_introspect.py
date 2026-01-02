@@ -133,15 +133,12 @@ def get_terminal_context(window_pid: int) -> Optional[TerminalContext]:
             # Terminal might be empty or just started
             return _get_process_context(window_pid)
 
-        # Check if tmux is running in this terminal
-        # If so, query tmux directly for accurate pane information
-        has_tmux = any(
-            'tmux' in Path(f"/proc/{pid}/comm").read_text().strip().lower()
-            for pid in descendants
-            if Path(f"/proc/{pid}/comm").exists()
-        )
+        # Check if this terminal's shell is actually running inside tmux
+        # We verify by checking for TMUX env var, not just "tmux" in process names.
+        # This prevents querying tmux for terminals that aren't attached to it.
+        shell_in_tmux = _any_shell_in_tmux(descendants)
 
-        if has_tmux:
+        if shell_in_tmux:
             # Use tmux-aware introspection for accurate active pane detection
             # This queries tmux directly and handles SSH detection internally
             tmux_context = _get_tmux_active_pane_context()
@@ -225,6 +222,58 @@ def _get_descendant_pids(pid: int) -> List[int]:
             continue
 
     return descendants
+
+
+def _process_in_tmux(pid: int) -> bool:
+    """Check if a process is running inside a tmux session.
+
+    Reads the process's environment to check for the TMUX variable,
+    which tmux sets in shells it spawns.
+
+    Args:
+        pid: Process ID to check.
+
+    Returns:
+        True if the process has TMUX environment variable set.
+    """
+    try:
+        env_path = Path(f"/proc/{pid}/environ")
+        if not env_path.exists():
+            return False
+        # Environment is null-separated key=value pairs
+        env_bytes = env_path.read_bytes()
+        env_str = env_bytes.decode('utf-8', errors='replace')
+        # Check for TMUX= in the environment
+        for entry in env_str.split('\x00'):
+            if entry.startswith('TMUX='):
+                return True
+        return False
+    except (OSError, PermissionError):
+        return False
+
+
+def _any_shell_in_tmux(pids: List[int]) -> bool:
+    """Check if any shell process in the list is running inside tmux.
+
+    This is more reliable than just checking for 'tmux' in process names,
+    because it verifies the shell is actually attached to a tmux session
+    (not just that tmux is running somewhere on the system).
+
+    Args:
+        pids: List of process IDs to check.
+
+    Returns:
+        True if any shell process has TMUX environment variable.
+    """
+    for pid in pids:
+        try:
+            comm = Path(f"/proc/{pid}/comm").read_text().strip()
+            if comm in SHELL_NAMES:
+                if _process_in_tmux(pid):
+                    return True
+        except OSError:
+            continue
+    return False
 
 
 def _find_foreground_process(pids: List[int]) -> Optional[int]:
@@ -355,24 +404,18 @@ def _check_ssh_in_tree(pids: List[int]) -> bool:
 def _get_tmux_session(pids: List[int]) -> Optional[str]:
     """Get tmux session name if running in tmux.
 
+    Only queries tmux if a shell process in the list is actually inside
+    a tmux session (has TMUX env var). This prevents returning tmux info
+    from other terminals that aren't attached to this session.
+
     Args:
         pids: List of process IDs to check.
 
     Returns:
         Tmux session name or None.
     """
-    # Check if any process is a tmux client
-    has_tmux = False
-    for pid in pids:
-        try:
-            comm = Path(f"/proc/{pid}/comm").read_text().strip()
-            if 'tmux' in comm.lower():
-                has_tmux = True
-                break
-        except OSError:
-            continue
-
-    if not has_tmux:
+    # Verify a shell is actually running inside tmux by checking env var
+    if not _any_shell_in_tmux(pids):
         return None
 
     # Try to get current tmux session name
