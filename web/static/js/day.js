@@ -23,8 +23,8 @@
 
     sortedHours.forEach(hour => {
         const hourScreenshots = hourlyGroups[hour];
-        const hourStr = `${hour}:00`;
-        const hourEnd = `${(parseInt(hour) + 1)}:00`;
+        // Format hour string with AM/PM
+        const hourStr = new Date(0, 0, 0, hour).toLocaleTimeString([], { hour: '2-digit', hour12: true });
 
         const groupDiv = document.createElement('div');
         groupDiv.className = 'hour-group';
@@ -32,9 +32,9 @@
         const headerDiv = document.createElement('div');
         headerDiv.className = 'hour-header';
         headerDiv.innerHTML = `
-            <span class="hour-title">${hourStr} - ${hourEnd}</span>
-            <span class="hour-count">${hourScreenshots.length} screenshot${hourScreenshots.length !== 1 ? 's' : ''}</span>
             <span class="hour-toggle">▼</span>
+            <span class="hour-title">${hourStr}</span>
+            <span class="hour-count">${hourScreenshots.length} screenshot${hourScreenshots.length !== 1 ? 's' : ''}</span>
         `;
         headerDiv.onclick = () => {
             groupDiv.classList.toggle('collapsed');

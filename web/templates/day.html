@@ -14,10 +14,10 @@
 <div class="day-header">
     <h1 class="day-title">{{ date.strftime('%A, %B %d, %Y') }}</h1>
     <div class="day-nav">
-        <a href="/day/{{ (date - timedelta(days=1)).strftime('%Y-%m-%d') }}">← Previous</a>
-        <a href="/day/{{ (date + timedelta(days=1)).strftime('%Y-%m-%d') }}">Next →</a>
-        <button id="collapseAllBtn" class="collapse-btn">Collapse All</button>
-        <a href="/timeline" class="timeline-link">View in Timeline</a>
+        <a href="/day/{{ (date - timedelta(days=1)).strftime('%Y-%m-%d') }}" class="btn">← Previous</a>
+        <a href="/day/{{ (date + timedelta(days=1)).strftime('%Y-%m-%d') }}" class="btn">Next →</a>
+        <a id="collapseAllBtn" class="btn">Collapse All</a>
+        <a href="/timeline" class="btn btn-primary">View in Timeline</a>
     </div>
 </div>
 

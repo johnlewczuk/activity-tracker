@@ -191,7 +191,7 @@ def day_view(date_string):
                          screenshots=screenshots,
                          date=target_date,
                          today=today.strftime('%Y-%m-%d'),
-                         page='day',
+                         page='screenshots',
                          timedelta=timedelta)
 
 
@@ -262,15 +262,27 @@ def serve_thumbnail(screenshot_id):
     if not row:
         abort(404, "Screenshot not found")
 
+    filepath = row['filepath']
+
+    # Handle both absolute and relative paths
+    if filepath.startswith(str(SCREENSHOTS_DIR)):
+        # Extract relative path from absolute path
+        relative_path = filepath[len(str(SCREENSHOTS_DIR)) + 1:]
+    else:
+        relative_path = filepath
+
     # Try thumbnail first, fall back to original
-    thumb_path = THUMBNAILS_DIR / row['filepath']
+    thumb_path = THUMBNAILS_DIR / relative_path
     if thumb_path.exists():
         return send_file(thumb_path, mimetype='image/webp')
 
     # Fall back to original screenshot
-    file_path = SCREENSHOTS_DIR / row['filepath']
+    file_path = SCREENSHOTS_DIR / relative_path
     if not file_path.exists():
-        abort(404, "Screenshot file not found on disk")
+        # Try the original filepath as-is (might be absolute)
+        file_path = Path(filepath)
+        if not file_path.exists():
+            abort(404, "Screenshot file not found on disk")
 
     return send_file(file_path, mimetype='image/webp')
 

@@ -393,7 +393,7 @@ class HybridSummarizer:
             "",
             "SUMMARY: [1-2 sentences, max 25 words describing the main activities]",
             "",
-            "EXPLANATION: [What you observed that led to this summary.]",
+            "EXPLANATION: [What you observed that led to this summary. When citing time spent, use EXACT values from the Time Breakdown above - do not round or estimate.]",
             "",
             "TAGS: [List of tags applicable to this summary (activity type, project name, etc.). To be used for categorization, search, etc.]",
             "",
@@ -417,6 +417,7 @@ class HybridSummarizer:
             "- Describe ONLY what is clearly visible in screenshots",
             "- If you cannot read text clearly, say 'terminal work' not 'working on X project'",
             "- Do NOT invent file names, project names, or specific activities",
+            "- When citing time durations, copy the EXACT format from the Time Breakdown (e.g., '22m 36s' not '27 minutes')",
             "- When uncertain, use GENERIC descriptions and LOW confidence",
             "- Better to be vague and accurate than specific and wrong",
         ])

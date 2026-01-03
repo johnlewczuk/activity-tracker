@@ -24,54 +24,13 @@
     align-items: center;
 }
 
-.day-nav a, .timeline-link, .collapse-btn {
-    padding: 8px 16px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    text-decoration: none;
-    transition: all 0.2s;
-    font-size: 0.9rem;
-}
-
-.day-nav a:hover, .timeline-link:hover {
-    background: var(--border);
-    border-color: var(--accent);
-}
-
-.timeline-link {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--text-inverse);
-    font-weight: 500;
-}
-
-.timeline-link:hover {
-    background: var(--accent-soft);
-}
-
-.collapse-btn {
-    padding: 8px 16px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.collapse-btn:hover {
-    background: var(--border);
-    border-color: var(--accent);
-}
+/* Buttons now use .btn and .btn-primary from base.css */
 
 .hour-group {
-    margin-bottom: 30px;
+    /* margin-bottom: 30px; */
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    border-bottom: 1px solid var(--border);
+    /* border-radius: 8px; */
     overflow: hidden;
 }
 
