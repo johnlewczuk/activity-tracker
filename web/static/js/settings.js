@@ -1,12 +1,14 @@
 /**
  * Activity Tracker - Settings Page JavaScript
  * Extracted from settings.html
+ * Supports both standalone page and drawer contexts.
  */
 
 let config = {};           // Current saved config
 let originalConfig = {};   // Copy of original for comparison
 let pendingChanges = {};   // Track unsaved changes: { elementId: { section, key, value } }
 let requiresRestart = false;
+let settingsInitialized = false;  // Guard against double initialization
 
 // Settings that require restart
 const restartRequiredKeys = new Set([
@@ -16,6 +18,168 @@ const restartRequiredKeys = new Set([
     'port',
     'data_dir'
 ]);
+
+/**
+ * Initialize settings functionality.
+ * Called automatically on standalone page load, or manually when drawer opens.
+ */
+function initializeSettings() {
+    if (settingsInitialized) {
+        console.log('Settings already initialized, skipping');
+        return;
+    }
+    settingsInitialized = true;
+
+    // Load config and set up data
+    loadConfig();
+    loadTagCloud();
+
+    // Set up event listeners
+    setupInputListeners();
+    setupButtonListeners();
+
+    console.log('Settings initialized');
+}
+
+
+/**
+ * Set up listeners for all form inputs (range, checkbox, select, text)
+ */
+function setupInputListeners() {
+    // Determine scroll container (drawer body or window)
+    const drawerBody = document.getElementById('settingsDrawerBody');
+    const scrollContainer = drawerBody || window;
+    scrollContainer.addEventListener('scroll', updateFloatingBarVisibility);
+
+    // Range inputs
+    ['interval_seconds', 'quality', 'timeout_seconds', 'min_session_minutes',
+     'max_days_retention', 'max_gb_storage', 'max_samples', 'daily_work_hours'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', (e) => {
+                updateSliderValue(id, e.target.value);
+                const { section, key } = getConfigInfo(id);
+                const value = (id === 'max_gb_storage' || id === 'daily_work_hours')
+                    ? parseFloat(e.target.value)
+                    : parseInt(e.target.value);
+                trackChange(id, section, key, value);
+            });
+        }
+    });
+
+    // Checkboxes
+    const promptAffectingCheckboxes = ['include_focus_context', 'include_screenshots', 'include_ocr', 'include_previous_summary'];
+
+    ['capture_active_monitor_only', 'summarization_enabled', 'include_previous_summary',
+     'crop_to_window', 'focus_weighted_sampling',
+     'include_focus_context', 'include_screenshots', 'include_ocr', 'weekday_goals_only'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', (e) => {
+                const { section, key } = getConfigInfo(id);
+                trackChange(id, section, key, e.target.checked);
+
+                // Update prompt template preview if this checkbox affects it
+                if (promptAffectingCheckboxes.includes(id)) {
+                    updatePromptTemplate();
+                }
+            });
+        }
+    });
+
+    // Select inputs (basic)
+    ['format', 'model'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', (e) => {
+                const { section, key } = getConfigInfo(id);
+                trackChange(id, section, key, e.target.value);
+            });
+        }
+    });
+
+    // Frequency dropdown - compute trigger threshold
+    const frequencyEl = document.getElementById('frequency_minutes');
+    if (frequencyEl) {
+        frequencyEl.addEventListener('change', (e) => {
+            trackChange('frequency_minutes', 'summarization', 'frequency_minutes', parseInt(e.target.value));
+            const threshold = updateTriggerThresholdDisplay();
+            trackChange('trigger_threshold', 'summarization', 'trigger_threshold', threshold);
+        });
+    }
+
+    // Quality preset dropdown - apply preset settings
+    const qualityEl = document.getElementById('quality_preset');
+    if (qualityEl) {
+        qualityEl.addEventListener('change', (e) => {
+            trackChange('quality_preset', 'summarization', 'quality_preset', e.target.value);
+            applyQualityPreset(e.target.value);
+        });
+    }
+
+    // Text inputs
+    const ollamaHostInput = document.getElementById('ollama_host');
+    if (ollamaHostInput) {
+        ollamaHostInput.addEventListener('change', (e) => {
+            trackChange('ollama_host', 'summarization', 'ollama_host', e.target.value);
+        });
+    }
+
+    // Tag input - track changes for excluded apps
+    const tagInput = document.getElementById('excluded_apps_input');
+    if (tagInput) {
+        tagInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                const value = e.target.value.trim();
+                // Create a working copy of excluded apps
+                let apps = pendingChanges['excluded_apps']?.value
+                    || [...config.privacy.excluded_apps];
+                if (!apps.includes(value)) {
+                    apps.push(value);
+                    trackChange('excluded_apps', 'privacy', 'excluded_apps', apps);
+                    updateTags('excluded_apps', apps);
+                }
+                e.target.value = '';
+                e.preventDefault();
+            }
+        });
+    }
+}
+
+/**
+ * Set up listeners for buttons and other interactive elements
+ */
+function setupButtonListeners() {
+    // Button event listeners (with null checks for dynamic loading)
+    document.getElementById('refreshModelsBtn')?.addEventListener('click', loadOllamaModels);
+    document.getElementById('advancedToggle')?.addEventListener('click', toggleAdvancedSettings);
+    document.getElementById('promptPreviewToggle')?.addEventListener('click', togglePromptPreview);
+    document.getElementById('tagSearchInput')?.addEventListener('input', filterTagCloud);
+    document.getElementById('analyzeTagsBtn')?.addEventListener('click', analyzeTagsForConsolidation);
+    document.getElementById('clearTagsBtn')?.addEventListener('click', clearTagSelection);
+    document.getElementById('mergeTagsBtn')?.addEventListener('click', mergeSelectedTags);
+    document.getElementById('selectAllConsolidations')?.addEventListener('change', toggleAllConsolidations);
+    document.getElementById('applyConsolidationsBtn')?.addEventListener('click', applySelectedConsolidations);
+    document.getElementById('cancelConsolidationBtn')?.addEventListener('click', cancelConsolidation);
+    document.getElementById('saveBtn')?.addEventListener('click', saveChanges);
+    document.getElementById('saveRestartBtn')?.addEventListener('click', saveAndRestart);
+    document.getElementById('discardBtn')?.addEventListener('click', discardChanges);
+    document.getElementById('exportConfigBtn')?.addEventListener('click', exportConfig);
+    document.getElementById('resetConfigBtn')?.addEventListener('click', resetConfig);
+    document.getElementById('floatingSaveBtn')?.addEventListener('click', saveChanges);
+    document.getElementById('floatingSaveRestartBtn')?.addEventListener('click', saveAndRestart);
+
+    // Event delegation for dynamically created tag remove buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('tag-remove')) {
+            const containerId = e.target.dataset.container;
+            const tag = e.target.dataset.tag;
+            if (containerId && tag) {
+                removeTag(containerId, tag);
+            }
+        }
+    });
+}
 
 // Load configuration on page load
 async function loadConfig() {
@@ -646,107 +810,9 @@ function updatePromptTemplate() {
     }
 }
 
-// Event listeners for all inputs
-document.addEventListener('DOMContentLoaded', () => {
-    loadConfig();
-
-    // Listen for scroll to update floating bar visibility
-    window.addEventListener('scroll', updateFloatingBarVisibility);
-
-    // Range inputs
-    ['interval_seconds', 'quality', 'timeout_seconds', 'min_session_minutes',
-     'max_days_retention', 'max_gb_storage', 'max_samples', 'daily_work_hours'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('input', (e) => {
-                updateSliderValue(id, e.target.value);
-                const { section, key } = getConfigInfo(id);
-                const value = (id === 'max_gb_storage' || id === 'daily_work_hours')
-                    ? parseFloat(e.target.value)
-                    : parseInt(e.target.value);
-                trackChange(id, section, key, value);
-            });
-        }
-    });
-
-    // Checkboxes
-    const promptAffectingCheckboxes = ['include_focus_context', 'include_screenshots', 'include_ocr', 'include_previous_summary'];
-
-    ['capture_active_monitor_only', 'summarization_enabled', 'include_previous_summary',
-     'crop_to_window', 'focus_weighted_sampling',
-     'include_focus_context', 'include_screenshots', 'include_ocr', 'weekday_goals_only'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', (e) => {
-                const { section, key } = getConfigInfo(id);
-                trackChange(id, section, key, e.target.checked);
-
-                // Update prompt template preview if this checkbox affects it
-                if (promptAffectingCheckboxes.includes(id)) {
-                    updatePromptTemplate();
-                }
-            });
-        }
-    });
-
-    // Select inputs (basic)
-    ['format', 'model'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', (e) => {
-                const { section, key } = getConfigInfo(id);
-                trackChange(id, section, key, e.target.value);
-            });
-        }
-    });
-
-    // Frequency dropdown - compute trigger threshold
-    const frequencyEl = document.getElementById('frequency_minutes');
-    if (frequencyEl) {
-        frequencyEl.addEventListener('change', (e) => {
-            trackChange('frequency_minutes', 'summarization', 'frequency_minutes', parseInt(e.target.value));
-            const threshold = updateTriggerThresholdDisplay();
-            trackChange('trigger_threshold', 'summarization', 'trigger_threshold', threshold);
-        });
-    }
-
-    // Quality preset dropdown - apply preset settings
-    const qualityEl = document.getElementById('quality_preset');
-    if (qualityEl) {
-        qualityEl.addEventListener('change', (e) => {
-            trackChange('quality_preset', 'summarization', 'quality_preset', e.target.value);
-            applyQualityPreset(e.target.value);
-        });
-    }
-
-    // Text inputs
-    const ollamaHostInput = document.getElementById('ollama_host');
-    if (ollamaHostInput) {
-        ollamaHostInput.addEventListener('change', (e) => {
-            trackChange('ollama_host', 'summarization', 'ollama_host', e.target.value);
-        });
-    }
-
-    // Tag input - track changes for excluded apps
-    const tagInput = document.getElementById('excluded_apps_input');
-    if (tagInput) {
-        tagInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.target.value.trim()) {
-                const value = e.target.value.trim();
-                // Create a working copy of excluded apps
-                let apps = pendingChanges['excluded_apps']?.value
-                    || [...config.privacy.excluded_apps];
-                if (!apps.includes(value)) {
-                    apps.push(value);
-                    trackChange('excluded_apps', 'privacy', 'excluded_apps', apps);
-                    updateTags('excluded_apps', apps);
-                }
-                e.target.value = '';
-                e.preventDefault();
-            }
-        });
-    }
-});
+// Auto-initialize when loaded on standalone settings page
+// (When loaded in drawer, initializeSettings() is called manually after content injection)
+document.addEventListener('DOMContentLoaded', initializeSettings);
 
 // Mapping from element IDs to config {section, key}
 const configMapping = {
@@ -1083,37 +1149,4 @@ function cancelConsolidation() {
     tagConsolidationData = [];
 }
 
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    loadTagCloud();
-
-    // Button event listeners
-    document.getElementById('refreshModelsBtn').addEventListener('click', loadOllamaModels);
-    document.getElementById('advancedToggle').addEventListener('click', toggleAdvancedSettings);
-    document.getElementById('promptPreviewToggle').addEventListener('click', togglePromptPreview);
-    document.getElementById('tagSearchInput').addEventListener('input', filterTagCloud);
-    document.getElementById('analyzeTagsBtn').addEventListener('click', analyzeTagsForConsolidation);
-    document.getElementById('clearTagsBtn').addEventListener('click', clearTagSelection);
-    document.getElementById('mergeTagsBtn').addEventListener('click', mergeSelectedTags);
-    document.getElementById('selectAllConsolidations').addEventListener('change', toggleAllConsolidations);
-    document.getElementById('applyConsolidationsBtn').addEventListener('click', applySelectedConsolidations);
-    document.getElementById('cancelConsolidationBtn').addEventListener('click', cancelConsolidation);
-    document.getElementById('saveBtn').addEventListener('click', saveChanges);
-    document.getElementById('saveRestartBtn').addEventListener('click', saveAndRestart);
-    document.getElementById('discardBtn').addEventListener('click', discardChanges);
-    document.getElementById('exportConfigBtn').addEventListener('click', exportConfig);
-    document.getElementById('resetConfigBtn').addEventListener('click', resetConfig);
-    document.getElementById('floatingSaveBtn').addEventListener('click', saveChanges);
-    document.getElementById('floatingSaveRestartBtn').addEventListener('click', saveAndRestart);
-
-    // Event delegation for dynamically created tag remove buttons
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('tag-remove')) {
-            const containerId = e.target.dataset.container;
-            const tag = e.target.dataset.tag;
-            if (containerId && tag) {
-                removeTag(containerId, tag);
-            }
-        }
-    });
-});
+// Note: Event listeners now set up in setupButtonListeners() called by initializeSettings()

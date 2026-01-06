@@ -749,6 +749,227 @@ a {
     text-align: center;
 }
 
+/* ==================== Header Actions ==================== */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-btn {
+    background: var(--surface-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.settings-btn:hover {
+    background: var(--border);
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.settings-btn .nav-icon {
+    width: 18px;
+    height: 18px;
+}
+
+/* ==================== Right Drawer (Pure CSS) ==================== */
+
+/* Hidden checkbox that controls drawer state */
+.drawer-toggle {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Overlay - hidden by default */
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--modal-overlay);
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* Backdrop label - clickable area to close drawer */
+.drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+}
+
+/* Drawer panel */
+.drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 580px;
+    max-width: 100vw;
+    height: 100%;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 1001;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+/* When checkbox is checked, show overlay and slide in drawer */
+#settingsDrawerToggle:checked ~ .drawer-overlay {
+    opacity: 1;
+    visibility: visible;
+}
+
+#settingsDrawerToggle:checked ~ .drawer-overlay .drawer {
+    transform: translateX(0);
+}
+
+/* Body scroll lock when drawer is open */
+body:has(#settingsDrawerToggle:checked) {
+    overflow: hidden;
+}
+
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.drawer-header h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.drawer-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.drawer-close:hover {
+    background: var(--surface-2);
+    color: var(--text);
+}
+
+.drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.drawer-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--muted);
+    gap: 10px;
+}
+
+/* ==================== Drawer Tabs (Pure CSS) ==================== */
+
+/* Hidden radio inputs for tab state */
+.tab-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.settings-tabs-container {
+    display: contents;
+}
+
+.drawer-tabs {
+    display: flex;
+    gap: 20px;
+    border-bottom: 1px solid var(--border);
+    margin: -20px -20px 0 -20px;
+    padding: 0 20px;
+    background: var(--surface);
+    flex-shrink: 0;
+}
+
+.drawer-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 0;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.drawer-tab:hover {
+    color: var(--text);
+}
+
+.tab-icon {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Tab content container - adds spacing below tabs */
+.settings-tabs-content {
+    padding-top: 20px;
+}
+
+/* Tab content - all hidden by default */
+.drawer-tab-content {
+    display: none;
+}
+
+/* Pure CSS tab switching using :checked + sibling selectors */
+/* When capture radio is checked, show capture tab and highlight its label */
+#tab-radio-capture:checked ~ .drawer-tabs .drawer-tab[for="tab-radio-capture"],
+#tab-radio-ai:checked ~ .drawer-tabs .drawer-tab[for="tab-radio-ai"],
+#tab-radio-data:checked ~ .drawer-tabs .drawer-tab[for="tab-radio-data"],
+#tab-radio-system:checked ~ .drawer-tabs .drawer-tab[for="tab-radio-system"] {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 500;
+}
+
+#tab-radio-capture:checked ~ .settings-tabs-content #tab-capture,
+#tab-radio-ai:checked ~ .settings-tabs-content #tab-ai,
+#tab-radio-data:checked ~ .settings-tabs-content #tab-data,
+#tab-radio-system:checked ~ .settings-tabs-content #tab-system {
+    display: block;
+}
+
 /* ==================== Header Responsive ==================== */
 @media (max-width: 768px) {
     .header-container {
@@ -783,5 +1004,240 @@ a {
     .stat-item {
         flex-direction: column;
         gap: 2px;
+    }
+}
+
+/* Drawer responsive */
+@media (max-width: 640px) {
+    .drawer {
+        width: 100vw;
+    }
+}
+
+/* ==================== Screenshot Modal ==================== */
+/* Shared screenshot viewer modal - used across timeline, day, and summary pages */
+
+.screenshot-modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--modal-overlay);
+}
+
+.screenshot-modal.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.screenshot-modal-content {
+    position: relative;
+    max-width: 95%;
+    max-height: 85%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+.screenshot-modal-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.screenshot-modal-close {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    color: var(--text);
+    font-size: 3rem;
+    cursor: pointer;
+    z-index: 2001;
+    transition: color 0.2s;
+    line-height: 1;
+    background: none;
+    border: none;
+}
+
+.screenshot-modal-close:hover {
+    color: var(--accent);
+}
+
+.screenshot-modal-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--floating-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 2rem;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 2001;
+    user-select: none;
+}
+
+.screenshot-modal-nav:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--text-inverse);
+}
+
+.screenshot-modal-nav.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.screenshot-modal-nav.disabled:hover {
+    background: var(--floating-surface);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+.screenshot-modal-nav-prev {
+    left: 20px;
+}
+
+.screenshot-modal-nav-next {
+    right: 20px;
+}
+
+.screenshot-modal-info {
+    margin-top: 20px;
+    padding: 15px 25px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-width: 800px;
+    width: 90%;
+}
+
+.screenshot-modal-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: center;
+    justify-content: center;
+}
+
+.screenshot-modal-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.screenshot-modal-meta-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.screenshot-modal-meta-value {
+    font-size: 0.95rem;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.screenshot-modal-counter {
+    font-size: 0.9rem;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.screenshot-modal-shortcuts {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.screenshot-modal-shortcuts .shortcut-key {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    margin: 0 2px;
+}
+
+.screenshot-modal-view-all-link {
+    display: block;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.screenshot-modal-view-all-link:hover {
+    text-decoration: underline;
+}
+
+.screenshot-modal-preload {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Screenshot modal responsive */
+@media (max-width: 768px) {
+    .screenshot-modal-content {
+        max-width: 100%;
+        max-height: 70%;
+    }
+
+    .screenshot-modal-nav {
+        width: 40px;
+        height: 40px;
+        font-size: 1.5rem;
+    }
+
+    .screenshot-modal-nav-prev {
+        left: 10px;
+    }
+
+    .screenshot-modal-nav-next {
+        right: 10px;
+    }
+
+    .screenshot-modal-info {
+        padding: 10px 15px;
+        width: 95%;
+    }
+
+    .screenshot-modal-metadata {
+        gap: 15px;
+    }
+
+    .screenshot-modal-shortcuts {
+        display: none;
+    }
+
+    .screenshot-modal-close {
+        top: 10px;
+        right: 15px;
+        font-size: 2rem;
     }
 }

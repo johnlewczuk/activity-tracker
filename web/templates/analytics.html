@@ -1,146 +1,395 @@
 {% extends "base.html" %}
 
-{% block title %}Analytics Dashboard - Activity Tracker{% endblock %}
+{% block title %}Analytics Summary - Activity Tracker{% endblock %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/static/styles/analytics.css">
 {% endblock %}
 
-{% block extra_styles %}
-{# CSS moved to /static/styles/analytics.css #}
-{% endblock %}
-
 {% block content %}
-<div class="controls">
-    <div class="date-range-selector">
-        <button class="range-btn active" data-range="7">Last 7 days</button>
-        <button class="range-btn" data-range="14">Last 14 days</button>
-        <button class="range-btn" data-range="30">Last 30 days</button>
-    </div>
-    <button class="refresh-btn" id="refreshBtn">Refresh</button>
+<!-- Period Tabs -->
+<div class="period-tabs">
+    <button class="period-tab active" data-view="day">Day</button>
+    <button class="period-tab" data-view="week">Week</button>
+    <button class="period-tab" data-view="month">Month</button>
 </div>
 
-<!-- AI Insights Section -->
-<h2 class="section-header">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    AI Insights
-</h2>
-
-<div class="summary-cards" id="aiSummaryCards">
-    <div class="card">
-        <div class="card-title">Total Summaries</div>
-        <div class="card-value" id="totalSummaries">-</div>
-        <div class="card-subtitle">Generated in period</div>
-    </div>
-    <div class="card">
-        <div class="card-title">Avg Confidence</div>
-        <div class="card-value" id="avgConfidence">-</div>
-        <div class="card-subtitle">Model certainty</div>
-    </div>
-    <div class="card">
-        <div class="card-title">High Confidence</div>
-        <div class="card-value success" id="highConfCount">-</div>
-        <div class="card-subtitle">Reliable summaries</div>
-    </div>
-    <div class="card">
-        <div class="card-title">Unique Tags</div>
-        <div class="card-value" id="uniqueTags">-</div>
-        <div class="card-subtitle">Activity categories</div>
-    </div>
-</div>
-
-<!-- Tag Cloud and Confidence Distribution -->
-<div class="chart-row">
-    <div class="chart-panel">
-        <h3>Activity Tags</h3>
-        <div class="tag-cloud" id="tagCloud">
-            <div class="no-data">Loading tags...</div>
+<!-- ==================== DAY VIEW ==================== -->
+<div id="day-view" class="view-container active">
+    <div class="period-navigator">
+        <div class="nav-group">
+            <button class="nav-btn" id="day-prev" aria-label="Previous day">&#8249;</button>
+            <button class="nav-btn" id="day-next" aria-label="Next day">&#8250;</button>
+        </div>
+        <div>
+            <div class="period-label" id="day-label">Loading...</div>
+            <div class="period-dates" id="day-active-time">-- active</div>
+        </div>
+        <div class="nav-group">
+            <input type="date" class="date-picker" id="day-picker" aria-label="Select date">
+            <button class="today-link" id="day-today">Today</button>
         </div>
     </div>
-    <div class="chart-panel">
-        <h3 id="confidenceChartLabel">Confidence Distribution</h3>
-        <div class="chart-container">
-            <canvas id="confidenceChart" role="img" aria-labelledby="confidenceChartLabel" aria-describedby="confidenceChartDesc"></canvas>
-            <p id="confidenceChartDesc" class="sr-only">Pie chart showing distribution of AI summary confidence levels</p>
+
+    <div class="summary-panel">
+        <div class="summary-header">
+            <div>
+                <div class="summary-title">Daily Summary</div>
+                <div class="summary-subtitle" id="day-summary-subtitle">Auto-generated from activity data</div>
+            </div>
+            <div class="summary-actions">
+                <button class="btn-icon" disabled>Regenerate</button>
+                <button class="btn-icon" disabled>Export</button>
+            </div>
+        </div>
+
+        <!-- Hourly Activity Chart -->
+        <div class="breakdown-section" style="margin-bottom: 16px;">
+            <div class="breakdown-title">Hourly Activity</div>
+            <div class="activity-chart" id="day-activity-chart"></div>
+            <div class="activity-labels" id="day-activity-labels">
+                <span>0</span><span></span><span></span><span></span><span></span><span></span>
+                <span>6</span><span></span><span></span><span></span><span></span><span></span>
+                <span>12</span><span></span><span></span><span></span><span></span><span></span>
+                <span>18</span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid" id="day-stats-grid">
+            <div class="stat-card primary">
+                <div class="stat-value" id="day-stat-active">--</div>
+                <div class="stat-label">Active Time</div>
+                <div class="goal-inline">
+                    <div class="goal-bar-inline">
+                        <div class="goal-fill-inline" id="day-goal-fill" style="width: 0%;"></div>
+                    </div>
+                    <span class="goal-pct" id="day-goal-pct">0%</span>
+                </div>
+                <div class="stat-value-small">of 8h goal</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="day-stat-break">--</div>
+                <div class="stat-label">Break Time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="day-stat-start">--</div>
+                <div class="stat-label">Start Time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="day-stat-end">--</div>
+                <div class="stat-label">End Time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="day-stat-switches">--</div>
+                <div class="stat-label">Context Switches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="day-stat-focus">--</div>
+                <div class="stat-label">Longest Focus</div>
+            </div>
+        </div>
+
+        <!-- Peak Focus Hours + Activity Tags -->
+        <div class="two-col" style="margin-bottom: 16px;">
+            <div class="breakdown-section">
+                <div class="breakdown-title">Focus Distribution</div>
+                <div class="peak-hours" id="day-peak-hours"></div>
+                <div class="peak-labels">
+                    <span>12am</span>
+                    <span>6am</span>
+                    <span>12pm</span>
+                    <span>6pm</span>
+                    <span>12am</span>
+                </div>
+                <div class="peak-insight" id="day-peak-insight"></div>
+            </div>
+
+            <div class="breakdown-section">
+                <div class="breakdown-title">Activity Tags</div>
+                <div id="day-tags-list" class="tags-list"></div>
+            </div>
+        </div>
+
+        <!-- Time Distribution + Top Windows -->
+        <div class="two-col">
+            <div class="breakdown-section">
+                <div class="breakdown-title">Time Distribution</div>
+                <div class="donut-container" id="day-donut-container">
+                    <div class="donut-chart" id="day-donut-chart"></div>
+                    <div class="donut-legend" id="day-donut-legend"></div>
+                </div>
+            </div>
+
+            <div class="breakdown-section">
+                <div class="breakdown-title">Top Windows</div>
+                <div id="day-windows-list" class="windows-list"></div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Recent AI Summaries -->
-<div class="chart-panel" style="margin-bottom: 30px;">
-    <h3>Recent AI Summaries</h3>
-    <ul class="summary-list" id="recentSummaries">
-        <li class="no-data">Loading summaries...</li>
-    </ul>
-</div>
-
-<!-- Focus Tracking Section -->
-<h2 class="section-header">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    Focus Tracking (Today)
-</h2>
-
-<div class="metrics-row" id="focusMetrics">
-    <div class="metric-card">
-        <div class="metric-value" id="trackedTime">-</div>
-        <div class="metric-label">Tracked Time</div>
+<!-- ==================== WEEK VIEW ==================== -->
+<div id="week-view" class="view-container">
+    <div class="period-navigator">
+        <div class="nav-group">
+            <button class="nav-btn" id="week-prev" aria-label="Previous week">&#8249;</button>
+            <button class="nav-btn" id="week-next" aria-label="Next week">&#8250;</button>
+        </div>
+        <div>
+            <div class="period-label" id="week-label">Loading...</div>
+            <div class="period-dates" id="week-dates">-- active</div>
+        </div>
+        <button class="today-link" id="week-today">This Week</button>
     </div>
-    <div class="metric-card">
-        <div class="metric-value" id="contextSwitches">-</div>
-        <div class="metric-label">Context Switches</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-value" id="longestFocus">-</div>
-        <div class="metric-label">Longest Focus</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-value" id="appsUsed">-</div>
-        <div class="metric-label">Apps Used</div>
-    </div>
-</div>
 
-<div class="chart-panel" style="margin-bottom: 20px;">
-    <h3 id="focusTimelineLabel">Focus Timeline</h3>
-    <div class="focus-timeline" id="focusTimeline" role="img" aria-labelledby="focusTimelineLabel" aria-describedby="focusTimelineDesc"></div>
-    <p id="focusTimelineDesc" class="sr-only">Visual timeline showing application usage throughout the day</p>
-    <div class="timeline-legend" id="focusLegend"></div>
-</div>
+    <div class="summary-panel">
+        <div class="summary-header">
+            <div>
+                <div class="summary-title">Weekly Summary</div>
+                <div class="summary-subtitle" id="week-summary-subtitle">Auto-generated from daily summaries</div>
+            </div>
+            <div class="summary-actions">
+                <button class="btn-icon" disabled>Regenerate</button>
+                <button class="btn-icon" disabled>Export</button>
+            </div>
+        </div>
 
-<!-- App Usage Section -->
-<div class="chart-row">
-    <div class="chart-panel">
-        <h3 id="appUsageChartLabel">Top Applications</h3>
-        <div class="chart-container">
-            <canvas id="appUsageChart" role="img" aria-labelledby="appUsageChartLabel" aria-describedby="appUsageChartDesc"></canvas>
-            <p id="appUsageChartDesc" class="sr-only">Doughnut chart showing time spent in each application</p>
+        <!-- Daily Activity Chart -->
+        <div class="breakdown-section" style="margin-bottom: 16px;">
+            <div class="breakdown-title">Daily Activity</div>
+            <div class="activity-chart" id="week-activity-chart"></div>
+            <div class="activity-labels">
+                <span>M</span>
+                <span>T</span>
+                <span>W</span>
+                <span>T</span>
+                <span>F</span>
+                <span>S</span>
+                <span>S</span>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid" id="week-stats-grid">
+            <div class="stat-card primary">
+                <div class="stat-value" id="week-stat-active">--</div>
+                <div class="stat-label">Total Active Time</div>
+                <div class="goal-inline">
+                    <div class="goal-bar-inline">
+                        <div class="goal-fill-inline" id="week-goal-fill" style="width: 0%;"></div>
+                    </div>
+                    <span class="goal-pct" id="week-goal-pct">0%</span>
+                </div>
+                <div class="stat-value-small">of 40h goal</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="week-stat-avg">--</div>
+                <div class="stat-label">Avg Daily Hours</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="week-stat-break">--</div>
+                <div class="stat-label">Total Break Time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="week-stat-start">--</div>
+                <div class="stat-label">Typical Start</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="week-stat-end">--</div>
+                <div class="stat-label">Typical End</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="week-stat-switches">--</div>
+                <div class="stat-label">Avg Context Switches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="week-stat-focus">--</div>
+                <div class="stat-label">Longest Focus</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="week-stat-days">--</div>
+                <div class="stat-label">Active Days</div>
+            </div>
+        </div>
+
+        <!-- Peak Focus Hours + Activity Tags -->
+        <div class="two-col" style="margin-bottom: 16px;">
+            <div class="breakdown-section">
+                <div class="breakdown-title">Peak Focus Hours (Avg)</div>
+                <div class="peak-hours" id="week-peak-hours"></div>
+                <div class="peak-labels">
+                    <span>12am</span>
+                    <span>6am</span>
+                    <span>12pm</span>
+                    <span>6pm</span>
+                    <span>12am</span>
+                </div>
+                <div class="peak-insight" id="week-peak-insight"></div>
+            </div>
+
+            <div class="breakdown-section">
+                <div class="breakdown-title">Activity Tags</div>
+                <div id="week-tags-list" class="tags-list"></div>
+            </div>
+        </div>
+
+        <!-- Time Distribution + Top Windows -->
+        <div class="two-col" style="margin-bottom: 16px;">
+            <div class="breakdown-section">
+                <div class="breakdown-title">Time Distribution</div>
+                <div class="donut-container" id="week-donut-container">
+                    <div class="donut-chart" id="week-donut-chart"></div>
+                    <div class="donut-legend" id="week-donut-legend"></div>
+                </div>
+            </div>
+
+            <div class="breakdown-section">
+                <div class="breakdown-title">Top Windows</div>
+                <div id="week-windows-list" class="windows-list"></div>
+            </div>
+        </div>
+
+        <!-- Daily Hours | Daily Breaks -->
+        <div class="two-col">
+            <div class="breakdown-section">
+                <div class="breakdown-title">Daily Hours</div>
+                <div id="week-daily-hours" class="daily-breakdown"></div>
+            </div>
+
+            <div class="breakdown-section">
+                <div class="breakdown-title">Daily Breaks</div>
+                <div id="week-daily-breaks" class="daily-breakdown"></div>
+            </div>
         </div>
     </div>
-    <div class="chart-panel">
-        <h3>App Usage Breakdown</h3>
-        <div style="max-height: 280px; overflow-y: auto;">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Application</th>
-                        <th style="text-align: right;">Time</th>
-                        <th style="width: 35%;">Usage</th>
-                    </tr>
-                </thead>
-                <tbody id="appTableBody">
-                    <tr><td colspan="3" class="no-data">Loading...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 
-<!-- Activity Trend -->
-<div class="chart-panel" style="margin-top: 20px;">
-    <h3 id="trendChartLabel">Summary Generation Trend</h3>
-    <div class="chart-container">
-        <canvas id="trendChart" role="img" aria-labelledby="trendChartLabel" aria-describedby="trendChartDesc"></canvas>
-        <p id="trendChartDesc" class="sr-only">Bar chart showing number of AI summaries generated per day</p>
+<!-- ==================== MONTH VIEW ==================== -->
+<div id="month-view" class="view-container">
+    <div class="period-navigator">
+        <div class="nav-group">
+            <button class="nav-btn" id="month-prev" aria-label="Previous month">&#8249;</button>
+            <button class="nav-btn" id="month-next" aria-label="Next month">&#8250;</button>
+        </div>
+        <div>
+            <div class="period-label" id="month-label">Loading...</div>
+            <div class="period-dates" id="month-dates">-- active</div>
+        </div>
+        <button class="today-link" id="month-today">This Month</button>
+    </div>
+
+    <div class="summary-panel">
+        <div class="summary-header">
+            <div>
+                <div class="summary-title">Monthly Summary</div>
+                <div class="summary-subtitle" id="month-summary-subtitle">Auto-generated from weekly summaries</div>
+            </div>
+            <div class="summary-actions">
+                <button class="btn-icon" disabled>Regenerate</button>
+                <button class="btn-icon" disabled>Export</button>
+            </div>
+        </div>
+
+        <!-- Weekly Activity Chart -->
+        <div class="breakdown-section" style="margin-bottom: 16px;">
+            <div class="breakdown-title">Weekly Activity</div>
+            <div class="activity-chart" id="month-activity-chart"></div>
+            <div class="activity-labels" id="month-activity-labels"></div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid" id="month-stats-grid">
+            <div class="stat-card primary">
+                <div class="stat-value" id="month-stat-active">--</div>
+                <div class="stat-label">Total Active Time</div>
+                <div class="goal-inline">
+                    <div class="goal-bar-inline">
+                        <div class="goal-fill-inline" id="month-goal-fill" style="width: 0%;"></div>
+                    </div>
+                    <span class="goal-pct" id="month-goal-pct">0%</span>
+                </div>
+                <div class="stat-value-small">of 160h goal</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="month-stat-avg">--</div>
+                <div class="stat-label">Avg Daily Hours</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="month-stat-break">--</div>
+                <div class="stat-label">Total Break Time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="month-stat-start">--</div>
+                <div class="stat-label">Typical Start</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="month-stat-end">--</div>
+                <div class="stat-label">Typical End</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="month-stat-switches">--</div>
+                <div class="stat-label">Avg Context Switches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="month-stat-focus">--</div>
+                <div class="stat-label">Longest Focus</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="month-stat-days">--</div>
+                <div class="stat-label">Active Days</div>
+            </div>
+        </div>
+
+        <!-- Peak Focus Hours + Activity Tags -->
+        <div class="two-col" style="margin-bottom: 16px;">
+            <div class="breakdown-section">
+                <div class="breakdown-title">Peak Focus Hours (Monthly Avg)</div>
+                <div class="peak-hours" id="month-peak-hours"></div>
+                <div class="peak-labels">
+                    <span>12am</span>
+                    <span>6am</span>
+                    <span>12pm</span>
+                    <span>6pm</span>
+                    <span>12am</span>
+                </div>
+                <div class="peak-insight" id="month-peak-insight"></div>
+            </div>
+
+            <div class="breakdown-section">
+                <div class="breakdown-title">Activity Tags</div>
+                <div id="month-tags-list" class="tags-list"></div>
+            </div>
+        </div>
+
+        <!-- Time Distribution + Top Windows -->
+        <div class="two-col" style="margin-bottom: 16px;">
+            <div class="breakdown-section">
+                <div class="breakdown-title">Time Distribution</div>
+                <div class="donut-container" id="month-donut-container">
+                    <div class="donut-chart" id="month-donut-chart"></div>
+                    <div class="donut-legend" id="month-donut-legend"></div>
+                </div>
+            </div>
+
+            <div class="breakdown-section">
+                <div class="breakdown-title">Top Windows</div>
+                <div id="month-windows-list" class="windows-list"></div>
+            </div>
+        </div>
+
+        <!-- Weekly Hours | Weekly Breaks -->
+        <div class="two-col">
+            <div class="breakdown-section">
+                <div class="breakdown-title">Weekly Hours</div>
+                <div id="month-weekly-hours" class="daily-breakdown"></div>
+            </div>
+
+            <div class="breakdown-section">
+                <div class="breakdown-title">Weekly Breaks</div>
+                <div id="month-weekly-breaks" class="daily-breakdown"></div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

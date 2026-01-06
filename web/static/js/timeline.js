@@ -112,7 +112,7 @@ function renderHorizontalTimeline(dateStr) {
                         <button class="preset-btn" data-start="18" data-end="24">Evening</button>
                         <button class="preset-btn" data-start="9" data-end="17">Work</button>
                     </div>
-                    <button class="btn-generate-missing" id="btnGenerateMissing" title="Generate summaries for unsummarized screenshots on this day">
+                    <button class="btn-generate-missing" id="btnGenerateMissing" title="Generate summaries for unsummarized sessions on this day">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                         Generate Missing
                     </button>
@@ -770,6 +770,7 @@ function toggleCalendarView(view) {
     // Show/hide appropriate panels
     const calendarGrid = document.getElementById('calendarGrid');
     const calendarLegend = document.querySelector('.calendar-legend');
+    const calendarWeekdays = document.querySelector('.calendar-weekdays');
     const weekViewPanel = document.getElementById('weekViewPanel');
 
     // Update navigation button tooltips
@@ -781,6 +782,7 @@ function toggleCalendarView(view) {
         if (nextBtn) nextBtn.title = 'Next week (L key)';
         if (calendarGrid) calendarGrid.style.display = 'none';
         if (calendarLegend) calendarLegend.style.display = 'none';
+        if (calendarWeekdays) calendarWeekdays.style.display = 'none';
         if (weekViewPanel) weekViewPanel.style.display = 'block';
         renderWeekView();
     } else {
@@ -788,6 +790,7 @@ function toggleCalendarView(view) {
         if (nextBtn) nextBtn.title = 'Next month (L key)';
         if (calendarGrid) calendarGrid.style.display = '';
         if (calendarLegend) calendarLegend.style.display = '';
+        if (calendarWeekdays) calendarWeekdays.style.display = '';
         if (weekViewPanel) weekViewPanel.style.display = 'none';
         // Restore month header
         updateMonthDisplay();
@@ -977,8 +980,8 @@ function hideTimelineTooltip() {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize modal handlers (with empty screenshots array initially)
-    initializeModal([]);
+    // Initialize modal click handlers (with empty screenshots array initially)
+    initializeTimelineModalClickHandler([]);
 
     // Load calendar and auto-select today on page load
     const today = new Date();
@@ -1081,9 +1084,8 @@ function setupEventListeners() {
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-        // Check if modal is open - if so, let modal handler deal with it
-        const modal = document.getElementById('imageModal');
-        if (modal && modal.classList.contains('active')) {
+        // Check if screenshot modal is open - if so, let modal handler deal with it
+        if (ScreenshotModal.isActive()) {
             // Only allow Escape to close modal, modal handler will handle arrow keys
             return;
         }
@@ -2080,8 +2082,8 @@ async function loadAllScreenshots() {
             hourGroupsContainer.appendChild(groupDiv);
         });
 
-        // Initialize modal functionality
-        initializeModal(data.screenshots);
+        // Update default screenshots for modal
+        window._timelineDefaultScreenshots = data.screenshots;
 
     } catch (error) {
         console.error('Failed to load screenshots:', error);
@@ -2089,131 +2091,42 @@ async function loadAllScreenshots() {
     }
 }
 
-// Global modal state
-const modalState = {
-    currentIndex: -1,
-    screenshots: [],
-    initialized: false
+// Timeline screenshot modal helper - wraps ScreenshotModal with viewAllUrl
+// This function is used for timeline-specific modal display with "View all from this day" link
+function showTimelineScreenshotModal(screenshots, screenshotIdOrIndex, options = {}) {
+    if (!screenshots || screenshots.length === 0) return;
+
+    // Compute the viewAllUrl from the first screenshot's date
+    const firstScreenshot = screenshots[0];
+    let viewAllUrl = null;
+    if (firstScreenshot && firstScreenshot.timestamp) {
+        const date = new Date(firstScreenshot.timestamp * 1000);
+        const dateStr = date.toISOString().split('T')[0];
+        viewAllUrl = `/day/${dateStr}`;
+    }
+
+    // Use ScreenshotModal with computed options
+    ScreenshotModal.show(screenshots, screenshotIdOrIndex, {
+        viewAllUrl: viewAllUrl,
+        findById: options.findById || false,
+        ...options
+    });
+}
+
+// Global alias for backward compatibility and session clicks
+window.showModalWithScreenshots = function(screenshotId, screenshots) {
+    showTimelineScreenshotModal(screenshots, screenshotId, { findById: true });
 };
 
-// Initialize modal with keyboard navigation
-function initializeModal(screenshots) {
-    modalState.screenshots = screenshots || [];
+// Set up click handlers for screenshot images (only once)
+let timelineModalClickHandlerInitialized = false;
+function initializeTimelineModalClickHandler(defaultScreenshots) {
+    if (timelineModalClickHandlerInitialized) return;
+    timelineModalClickHandlerInitialized = true;
 
-    // Only set up event handlers once
-    if (modalState.initialized) {
-        return;
-    }
-    modalState.initialized = true;
+    // Store default screenshots for hourly view
+    window._timelineDefaultScreenshots = defaultScreenshots || [];
 
-    const modal = document.getElementById('imageModal');
-    const modalImg = document.getElementById('modalImage');
-    const closeBtn = document.querySelector('.modal-close');
-    const prevBtn = document.getElementById('modalPrev');
-    const nextBtn = document.getElementById('modalNext');
-    const modalCounter = document.getElementById('modalCounter');
-    const modalTime = document.getElementById('modalTime');
-    const modalApp = document.getElementById('modalApp');
-    const modalWindowTitle = document.getElementById('modalWindowTitle');
-    const modalWindowTitleContainer = document.getElementById('modalWindowTitleContainer');
-
-    function updateModalContent(index) {
-        if (index < 0 || index >= modalState.screenshots.length) return;
-
-        modalState.currentIndex = index;
-        const screenshot = modalState.screenshots[index];
-
-        // Update image
-        modalImg.src = `/screenshot/${screenshot.id}`;
-
-        // Update metadata
-        const time = new Date(screenshot.timestamp * 1000);
-        modalCounter.textContent = `${index + 1} / ${modalState.screenshots.length}`;
-        modalTime.textContent = time.toLocaleTimeString();
-        modalApp.textContent = screenshot.app_name || 'Unknown';
-
-        // Show window title if available
-        if (screenshot.window_title && screenshot.window_title.trim()) {
-            modalWindowTitle.textContent = screenshot.window_title;
-            modalWindowTitleContainer.style.display = 'flex';
-        } else {
-            modalWindowTitleContainer.style.display = 'none';
-        }
-
-        // Update navigation buttons
-        prevBtn.classList.toggle('disabled', index === 0);
-        nextBtn.classList.toggle('disabled', index === modalState.screenshots.length - 1);
-
-        // Update "View all from this day" link
-        const viewAllLink = document.getElementById('modalViewAllLink');
-        if (viewAllLink) {
-            const dateStr = time.toISOString().split('T')[0];
-            viewAllLink.href = `/day/${dateStr}`;
-        }
-    }
-
-    function showModal(screenshotId) {
-        const index = modalState.screenshots.findIndex(s => s.id === screenshotId);
-        if (index !== -1) {
-            // Store the element that triggered the modal for focus return
-            modalState.triggerElement = document.activeElement;
-            updateModalContent(index);
-            modal.classList.add('active');
-            modal.setAttribute('aria-hidden', 'false');
-            // Focus the close button for accessibility
-            closeBtn.focus();
-        }
-    }
-
-    function closeModal() {
-        modal.classList.remove('active');
-        modal.setAttribute('aria-hidden', 'true');
-        modalState.currentIndex = -1;
-        // Return focus to the element that opened the modal
-        if (modalState.triggerElement) {
-            modalState.triggerElement.focus();
-            modalState.triggerElement = null;
-        }
-        // Clean up keyboard handler
-        if (window.modalKeyHandler) {
-            document.removeEventListener('keydown', window.modalKeyHandler);
-            window.modalKeyHandler = null;
-        }
-    }
-
-    function navigatePrev() {
-        if (modalState.currentIndex > 0) {
-            updateModalContent(modalState.currentIndex - 1);
-        }
-    }
-
-    function navigateNext() {
-        if (modalState.currentIndex < modalState.screenshots.length - 1) {
-            updateModalContent(modalState.currentIndex + 1);
-        }
-    }
-
-    // Show modal with a custom screenshots array (for session screenshots)
-    function showModalWithScreenshots(screenshotId, screenshots) {
-        // Replace screenshots array for navigation
-        modalState.screenshots = screenshots;
-        // Store the element that triggered the modal for focus return
-        modalState.triggerElement = document.activeElement;
-
-        const index = screenshots.findIndex(s => s.id === screenshotId);
-        if (index !== -1) {
-            updateModalContent(index);
-            modal.classList.add('active');
-            modal.setAttribute('aria-hidden', 'false');
-            // Focus the close button for accessibility
-            closeBtn.focus();
-        }
-    }
-
-    // Make showModalWithScreenshots available globally for session clicks
-    window.showModalWithScreenshots = showModalWithScreenshots;
-
-    // Click handlers - handle both hourly and session screenshots
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('screenshot-img')) {
             const screenshotId = parseInt(e.target.dataset.id);
@@ -2224,65 +2137,15 @@ function initializeModal(screenshots) {
                 const container = document.getElementById(`session-screenshots-${sessionId}`);
                 if (container && container.dataset.screenshots) {
                     const sessionScreenshots = JSON.parse(container.dataset.screenshots);
-                    showModalWithScreenshots(screenshotId, sessionScreenshots);
+                    showTimelineScreenshotModal(sessionScreenshots, screenshotId, { findById: true });
                     return;
                 }
             }
 
             // Default to hourly screenshots
-            showModal(screenshotId);
+            showTimelineScreenshotModal(window._timelineDefaultScreenshots, screenshotId, { findById: true });
         }
     });
-
-    closeBtn.onclick = closeModal;
-
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            closeModal();
-        }
-    };
-
-    prevBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (!prevBtn.classList.contains('disabled')) {
-            navigatePrev();
-        }
-    };
-
-    nextBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (!nextBtn.classList.contains('disabled')) {
-            navigateNext();
-        }
-    };
-
-    // Keyboard navigation - only when modal is active
-    const modalKeyHandler = (e) => {
-        if (!modal.classList.contains('active')) return;
-
-        switch(e.key) {
-            case 'ArrowLeft':
-                e.preventDefault();
-                e.stopPropagation();
-                navigatePrev();
-                break;
-            case 'ArrowRight':
-                e.preventDefault();
-                e.stopPropagation();
-                navigateNext();
-                break;
-            case 'Escape':
-                e.preventDefault();
-                e.stopPropagation();
-                closeModal();
-                break;
-        }
-    };
-
-    // Remove old handler if exists and add new one
-    document.removeEventListener('keydown', window.modalKeyHandler);
-    window.modalKeyHandler = modalKeyHandler;
-    document.addEventListener('keydown', modalKeyHandler);
 }
 
 // Build daily summary from hourly summaries
@@ -3106,7 +2969,7 @@ async function triggerSummarization() {
         }
 
         if (data.status === 'no_pending') {
-            showToast(`No unsummarized screenshots for ${state.selectedDate}`, 'warning');
+            showToast(`No unsummarized sessions for ${state.selectedDate}`, 'warning');
             resetButton();
             return;
         }

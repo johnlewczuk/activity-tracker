@@ -3,7 +3,6 @@
 (function() {
     const summaryId = parseInt(document.getElementById('content').dataset.summaryId);
     let data = null;
-    let currentScreenshotIndex = 0;
 
     document.addEventListener('DOMContentLoaded', () => {
         setupEventListeners();
@@ -13,12 +12,6 @@
     function setupEventListeners() {
         document.getElementById('regenerateBtn').addEventListener('click', regenerateSummary);
         document.getElementById('deleteBtn').addEventListener('click', deleteSummary);
-        document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
-        document.getElementById('modalPrevBtn').addEventListener('click', () => navigateScreenshot(-1));
-        document.getElementById('modalNextBtn').addEventListener('click', () => navigateScreenshot(1));
-        document.getElementById('screenshotModal').addEventListener('click', (e) => {
-            if (e.target.id === 'screenshotModal') closeModal();
-        });
     }
 
     async function loadSummaryDetails() {
@@ -265,50 +258,8 @@
     }
 
     function openScreenshot(index) {
-        currentScreenshotIndex = index;
-        updateModal();
-        document.getElementById('screenshotModal').classList.add('active');
-        document.addEventListener('keydown', handleKeyNav);
-    }
-
-    function closeModal() {
-        document.getElementById('screenshotModal').classList.remove('active');
-        document.removeEventListener('keydown', handleKeyNav);
-    }
-
-    function updateModal() {
-        const screenshot = data.screenshots[currentScreenshotIndex];
-        const total = data.screenshots.length;
-
-        document.getElementById('modalImage').src = `/screenshot/${screenshot.id}`;
-        document.getElementById('modalTime').textContent = `${screenshot.formatted_time} (${currentScreenshotIndex + 1}/${total})`;
-
-        const appName = screenshot.app_name || 'Unknown';
-        const windowTitle = screenshot.window_title || '';
-        const truncatedTitle = windowTitle.length > 60 ? windowTitle.substring(0, 60) + '...' : windowTitle;
-        document.getElementById('modalContext').innerHTML = `<span class="modal-app-badge">${escapeHtml(appName)}</span>${escapeHtml(truncatedTitle)}`;
-
-        preloadAdjacentImages();
-    }
-
-    function preloadAdjacentImages() {
-        const total = data.screenshots.length;
-        if (total <= 1) return;
-        const prevIndex = (currentScreenshotIndex - 1 + total) % total;
-        const nextIndex = (currentScreenshotIndex + 1) % total;
-        document.getElementById('preloadPrev').src = `/screenshot/${data.screenshots[prevIndex].id}`;
-        document.getElementById('preloadNext').src = `/screenshot/${data.screenshots[nextIndex].id}`;
-    }
-
-    function navigateScreenshot(delta) {
-        currentScreenshotIndex = (currentScreenshotIndex + delta + data.screenshots.length) % data.screenshots.length;
-        updateModal();
-    }
-
-    function handleKeyNav(e) {
-        if (e.key === 'ArrowLeft') navigateScreenshot(-1);
-        else if (e.key === 'ArrowRight') navigateScreenshot(1);
-        else if (e.key === 'Escape') closeModal();
+        // Use the shared screenshot modal
+        ScreenshotModal.show(data.screenshots, index);
     }
 
     async function regenerateSummary() {

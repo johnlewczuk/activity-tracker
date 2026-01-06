@@ -1041,3 +1041,24 @@ button.small {
     flex: 1;
     max-width: 250px;
 }
+
+/* ==================== Drawer-Specific Overrides ==================== */
+/* When settings are displayed in the right drawer panel */
+
+.drawer-body .settings-grid {
+    grid-template-columns: 1fr;  /* Single column in narrow drawer */
+}
+
+.drawer-body .settings-section {
+    margin-bottom: 15px;
+}
+
+.drawer-body .save-bar {
+    position: sticky;
+    bottom: -20px;
+    left: -20px;
+    right: -20px;
+    width: calc(100% + 40px);
+    margin: 20px -20px -20px;
+    border-radius: 0;
+}

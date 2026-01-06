@@ -310,6 +310,56 @@ class SummarizerWorker:
         )
         return len(active_slots)
 
+    def force_summarize_sessions(self, date: str = None) -> int:
+        """Force immediate summarization of unsummarized sessions.
+
+        Finds completed sessions that have no corresponding summary and
+        queues them for summarization. This is the session-based approach
+        (vs the deprecated threshold/time-slot approach).
+
+        Args:
+            date: Optional date string (YYYY-MM-DD) to limit to a specific day.
+                If None, processes all unsummarized sessions.
+
+        Returns:
+            Number of sessions queued for summarization.
+        """
+        if not self.config.config.summarization.enabled:
+            logger.info("Summarization is disabled, skipping force_summarize_sessions")
+            return 0
+
+        min_duration = self.config.config.summarization.min_session_duration_seconds
+        unsummarized = self.storage.get_sessions_without_summaries(min_duration)
+
+        if not unsummarized:
+            logger.info("No unsummarized sessions found")
+            return 0
+
+        # Filter by date if specified
+        if date:
+            filtered = []
+            for session in unsummarized:
+                session_date = session['start_time'][:10]  # Extract YYYY-MM-DD
+                if session_date == date:
+                    filtered.append(session)
+            unsummarized = filtered
+            if not unsummarized:
+                logger.info(f"No unsummarized sessions for date {date}")
+                return 0
+
+        logger.info(f"Found {len(unsummarized)} unsummarized sessions to process")
+
+        # Queue each session for summarization
+        for session in unsummarized:
+            session_id = session['id']
+            self._pending_queue.put(('session_end', (session_id, datetime.now())))
+            logger.info(
+                f"Queued session {session_id} for summarization: "
+                f"{session['start_time']} - {session['end_time']}"
+            )
+
+        return len(unsummarized)
+
     def get_status(self) -> Dict:
         """Get current worker status.
 
@@ -1098,8 +1148,8 @@ class SummarizerWorker:
 
             # Get screenshots in the time range
             screenshots = self.storage.get_screenshots_in_range(
-                start_time.isoformat(),
-                end_time.isoformat()
+                start_time,
+                end_time
             )
 
             if not screenshots:
@@ -1108,8 +1158,8 @@ class SummarizerWorker:
 
             # Get focus events for context
             focus_events = self.storage.get_focus_events_in_range(
-                start_time.isoformat(),
-                end_time.isoformat()
+                start_time,
+                end_time
             )
 
             logger.info(
@@ -1117,26 +1167,21 @@ class SummarizerWorker:
                 f"{len(focus_events)} focus events"
             )
 
+            # Gather OCR texts for unique window titles
+            ocr_texts = self._gather_ocr(screenshots)
+
             # Generate summary
             cfg = self.config.config.summarization
-            result = summarizer.summarize_screenshots(
-                screenshots,
-                self.storage,
-                self.config.config,
-                previous_summary=None,  # No context for previews
-                focus_events=focus_events,
-            )
-
-            if result is None:
-                logger.warning("Preview summarization returned None")
+            try:
+                summary_text, inference_ms, prompt_text, screenshot_ids, explanation, tags, confidence = summarizer.summarize_session(
+                    screenshots=screenshots,
+                    ocr_texts=ocr_texts,
+                    previous_summary=None,  # No context for previews
+                    focus_events=focus_events,
+                )
+            except Exception as e:
+                logger.error(f"Preview summarization failed: {e}")
                 return
-
-            summary_text = result.get('summary', '')
-            explanation = result.get('explanation')
-            confidence = result.get('confidence')
-            tags = result.get('tags', [])
-            inference_ms = result.get('inference_ms', 0)
-            screenshot_ids = result.get('screenshot_ids', [s['id'] for s in screenshots])
 
             # Check for existing preview to update
             existing_preview = self.storage.get_current_preview_summary()

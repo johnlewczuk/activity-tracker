@@ -69,22 +69,16 @@
                                 <span>Reports</span>
                             </a>
                         </li>
-                        <li>
-                            <a href="/settings" {% if page == 'settings' %}class="active" aria-current="page"{% endif %}>
-                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                                </svg>
-                                <span>Settings</span>
-                            </a>
-                        </li>
                     </ul>
                 </nav>
             </div>
             <div class="header-actions">
-                <button class="help-btn" id="helpBtn" aria-label="Show keyboard shortcuts" aria-expanded="false" aria-controls="shortcutsModal">
-                    <span aria-hidden="true">?</span>
-                </button>
+                <label for="settingsDrawerToggle" class="settings-btn" aria-label="Open settings">
+                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </label>
             </div>
         </div>
     </header>
@@ -94,43 +88,70 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Keyboard Shortcuts Modal -->
-    <div id="shortcutsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="shortcutsModalTitle" aria-hidden="true">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="shortcutsModalTitle">Keyboard Shortcuts</h2>
-                <button class="modal-close" id="modalCloseBtn" aria-label="Close keyboard shortcuts">&times;</button>
+    <!-- Settings Drawer (Pure CSS toggle) -->
+    <input type="checkbox" id="settingsDrawerToggle" class="drawer-toggle" aria-hidden="true">
+    <div id="settingsDrawer" class="drawer-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsDrawerTitle">
+        <!-- Backdrop label - clicking closes the drawer -->
+        <label for="settingsDrawerToggle" class="drawer-backdrop" aria-label="Close settings"></label>
+        <div class="drawer">
+            <div class="drawer-header">
+                <h2 id="settingsDrawerTitle">
+                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    Settings
+                </h2>
+                <label for="settingsDrawerToggle" class="drawer-close" aria-label="Close settings">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </label>
             </div>
-            <ul class="shortcuts-list">
-                <li class="shortcut-item">
-                    <span class="shortcut-desc">Go to Timeline</span>
-                    <kbd class="shortcut-key">T</kbd>
-                </li>
-                <li class="shortcut-item">
-                    <span class="shortcut-desc">Go to Analytics</span>
-                    <kbd class="shortcut-key">A</kbd>
-                </li>
-                <li class="shortcut-item">
-                    <span class="shortcut-desc">Go to Screenshots</span>
-                    <kbd class="shortcut-key">S</kbd>
-                </li>
-                <li class="shortcut-item">
-                    <span class="shortcut-desc">Go to Today</span>
-                    <kbd class="shortcut-key">D</kbd>
-                </li>
-                <li class="shortcut-item">
-                    <span class="shortcut-desc">Show Shortcuts</span>
-                    <kbd class="shortcut-key">?</kbd>
-                </li>
-                <li class="shortcut-item">
-                    <span class="shortcut-desc">Close Modal</span>
-                    <kbd class="shortcut-key">Esc</kbd>
-                </li>
-            </ul>
+            <div class="drawer-body" id="settingsDrawerBody">
+                <div class="drawer-loading">
+                    <div class="spinner"></div>
+                    <span>Loading settings...</span>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- Shared Screenshot Modal -->
+    {% include 'partials/screenshot_modal.html' %}
+
+    <!-- Settings JS loaded here so it's available when drawer opens -->
+    <script src="/static/js/screenshot_modal.js"></script>
+    <script src="/static/js/settings.js"></script>
     <script>
+        // Settings Drawer - Pure CSS toggle with JS content loading
+        let settingsDrawerLoaded = false;
+
+        async function loadSettingsContent() {
+            const body = document.getElementById('settingsDrawerBody');
+            try {
+                const response = await fetch('/api/settings-drawer');
+                const html = await response.text();
+                body.innerHTML = html;
+                settingsDrawerLoaded = true;
+
+                // Reset initialization flag and initialize settings
+                settingsInitialized = false;
+                initializeSettings();
+            } catch (error) {
+                body.innerHTML = '<p class="text-danger" style="padding: 20px;">Failed to load settings. Please try again.</p>';
+                console.error('Settings load error:', error);
+            }
+        }
+
+        // Load settings content on first open
+        document.getElementById('settingsDrawerToggle')?.addEventListener('change', function(e) {
+            if (e.target.checked && !settingsDrawerLoaded) {
+                loadSettingsContent();
+            }
+        });
+
         // Global keyboard shortcuts
         document.addEventListener('keydown', function(e) {
             // Don't trigger if typing in input field
@@ -138,11 +159,17 @@
                 return;
             }
 
-            // Don't trigger if modal is open (except for ?)
-            const modal = document.getElementById('shortcutsModal');
-            if (modal.classList.contains('active') && e.key !== 'Escape') {
+            const toggle = document.getElementById('settingsDrawerToggle');
+            const drawerOpen = toggle?.checked;
+
+            // Handle Escape key - close drawer
+            if (e.key === 'Escape' && drawerOpen) {
+                toggle.checked = false;
                 return;
             }
+
+            // Don't trigger shortcuts if drawer is open
+            if (drawerOpen) return;
 
             switch(e.key.toLowerCase()) {
                 case 't':
@@ -157,50 +184,8 @@
                 case 'd':
                     window.location.href = '/day/{{ today }}';
                     break;
-                case '?':
-                    e.preventDefault();
-                    toggleShortcutsModal();
-                    break;
-                case 'escape':
-                    if (modal.classList.contains('active')) {
-                        toggleShortcutsModal();
-                    }
-                    break;
             }
         });
-
-        // Toggle shortcuts modal with accessibility support
-        function toggleShortcutsModal() {
-            const modal = document.getElementById('shortcutsModal');
-            const helpBtn = document.querySelector('.help-btn');
-            const isOpen = modal.classList.contains('active');
-
-            if (isOpen) {
-                // Close modal
-                modal.classList.remove('active');
-                modal.setAttribute('aria-hidden', 'true');
-                helpBtn.setAttribute('aria-expanded', 'false');
-                helpBtn.focus(); // Return focus to trigger button
-            } else {
-                // Open modal
-                modal.classList.add('active');
-                modal.setAttribute('aria-hidden', 'false');
-                helpBtn.setAttribute('aria-expanded', 'true');
-                // Focus close button
-                modal.querySelector('.modal-close').focus();
-            }
-        }
-
-        // Close modal when clicking outside
-        document.getElementById('shortcutsModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                toggleShortcutsModal();
-            }
-        });
-
-        // Help button and modal close button
-        document.getElementById('helpBtn').addEventListener('click', toggleShortcutsModal);
-        document.getElementById('modalCloseBtn').addEventListener('click', toggleShortcutsModal);
     </script>
 
     {% block extra_scripts %}{% endblock %}

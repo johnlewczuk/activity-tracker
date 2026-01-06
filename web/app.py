@@ -877,6 +877,701 @@ def get_ai_analytics():
         return jsonify({'error': f'Failed to get AI analytics: {str(e)}'}), 500
 
 
+# =============================================================================
+# Analytics Summary API Endpoints (Day/Week/Month views)
+# =============================================================================
+
+# Goal constants (hard-coded for MVP)
+DAILY_GOAL_SECONDS = 8 * 3600   # 8 hours
+WEEKLY_GOAL_SECONDS = 40 * 3600  # 40 hours
+MONTHLY_GOAL_SECONDS = 160 * 3600  # 160 hours
+
+# App color palette (assign by order, last is "Other")
+APP_COLORS = ['#58a6ff', '#3fb950', '#f0883e', '#a371f7', '#ff7b72', '#79c0ff', '#ffa657', '#8b949e']
+
+
+def _format_duration_hm(seconds):
+    """Format seconds as 'Xh Ym' string."""
+    if seconds is None or seconds == 0:
+        return '0m'
+    hours = int(seconds // 3600)
+    mins = int((seconds % 3600) // 60)
+    if hours == 0:
+        return f'{mins}m'
+    if mins == 0:
+        return f'{hours}h'
+    return f'{hours}h {mins}m'
+
+
+def _get_bar_class(value, max_value):
+    """Get CSS class for activity bar based on percentage."""
+    if max_value == 0 or value == 0:
+        return 'low'
+    pct = (value / max_value) * 100
+    if pct >= 86:
+        return 'peak'
+    if pct >= 51:
+        return 'high'
+    if pct >= 21:
+        return 'med'
+    return 'low'
+
+
+def _aggregate_tags(summaries):
+    """Aggregate tag counts from summaries."""
+    tag_counts = {}
+    for s in summaries:
+        tags = s.get('tags', [])
+        if tags:
+            for tag in tags:
+                tag_lower = tag.lower().strip()
+                if tag_lower:
+                    tag_counts[tag_lower] = tag_counts.get(tag_lower, 0) + 1
+    # Sort by count descending
+    sorted_tags = sorted(tag_counts.items(), key=lambda x: -x[1])
+    return [{'name': t[0], 'count': t[1]} for t in sorted_tags[:10]]
+
+
+def _get_day_data(storage, date_str, is_today=False):
+    """Get analytics data for a single day. Returns dict with all fields."""
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d')
+    except ValueError:
+        return None
+
+    start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    # Get app durations
+    apps = storage.get_app_durations_in_range(start, end)
+    total_seconds = sum(a.get('total_seconds', 0) or 0 for a in apps)
+
+    # Get hourly breakdown
+    hourly_raw = storage.get_hourly_app_breakdown(date_str)
+    hourly_by_hour = {}
+    for h in hourly_raw:
+        hour = h['hour']
+        hourly_by_hour[hour] = hourly_by_hour.get(hour, 0) + (h['seconds'] or 0)
+
+    # Build 24-hour array (in minutes for display, raw seconds for peak calculation)
+    hourly_activity = [0] * 24
+    hourly_seconds = [0] * 24
+    for hour in range(24):
+        secs = hourly_by_hour.get(hour, 0)
+        hourly_seconds[hour] = secs
+        hourly_activity[hour] = int(secs / 60)  # Convert to minutes
+
+    # Peak hours normalized 0-100
+    max_hourly = max(hourly_seconds) if hourly_seconds else 1
+    peak_hours = [int((s / max_hourly) * 100) if max_hourly > 0 else 0 for s in hourly_seconds]
+
+    # Get window durations for top windows
+    windows = storage.get_window_durations_in_range(start, end, limit=10)
+
+    # Get focus metrics
+    context_switches = storage.get_context_switch_count(start, end)
+    longest_sessions = storage.get_longest_focus_sessions(start, end, min_duration_minutes=5, limit=1)
+    longest_focus_seconds = longest_sessions[0]['duration_seconds'] if longest_sessions else 0
+
+    # Get focus events for start/end times
+    focus_events = storage.get_focus_events_in_range(start, end, require_session=True)
+    start_time = None
+    end_time = None
+    if focus_events:
+        first_event = focus_events[0]
+        last_event = focus_events[-1]
+        if first_event.get('start_time'):
+            try:
+                st = datetime.fromisoformat(first_event['start_time'].replace('Z', '+00:00'))
+                start_time = st.strftime('%I:%M %p').lstrip('0')
+            except (ValueError, TypeError):
+                pass
+        if last_event.get('end_time'):
+            try:
+                et = datetime.fromisoformat(last_event['end_time'].replace('Z', '+00:00'))
+                end_time = et.strftime('%I:%M %p').lstrip('0')
+            except (ValueError, TypeError):
+                pass
+
+    # Get summaries for tags
+    summaries = storage.get_threshold_summaries_for_date(date_str)
+    tags = _aggregate_tags(summaries)
+
+    # Build app distribution with colors
+    app_distribution = []
+    other_seconds = 0
+    for i, app in enumerate(apps):
+        app_seconds = app.get('total_seconds', 0) or 0
+        if i < 7:  # First 7 apps get their own color
+            pct = int((app_seconds / total_seconds) * 100) if total_seconds > 0 else 0
+            app_distribution.append({
+                'app': app['app_name'],
+                'seconds': app_seconds,
+                'pct': pct,
+                'color': APP_COLORS[i]
+            })
+        else:
+            other_seconds += app_seconds
+
+    if other_seconds > 0:
+        pct = int((other_seconds / total_seconds) * 100) if total_seconds > 0 else 0
+        app_distribution.append({
+            'app': 'Other',
+            'seconds': other_seconds,
+            'pct': pct,
+            'color': APP_COLORS[7]  # Gray for "Other"
+        })
+
+    # Top windows
+    top_windows = []
+    for w in windows[:6]:
+        top_windows.append({
+            'app': w['app_name'],
+            'title': w['window_title'] or '',
+            'seconds': w.get('total_seconds', 0) or 0
+        })
+
+    # Calculate break time (rough estimate: total work span - active time)
+    break_seconds = 0
+    if start_time and end_time and total_seconds > 0:
+        # Very rough: assume 8h workday, break = expected - actual
+        break_seconds = max(0, DAILY_GOAL_SECONDS - total_seconds) // 8  # Simplified
+
+    goal_pct = int((total_seconds / DAILY_GOAL_SECONDS) * 100) if DAILY_GOAL_SECONDS > 0 else 0
+
+    return {
+        'date': date_str,
+        'active_seconds': total_seconds,
+        'hourly_activity': hourly_activity,
+        'hourly_seconds': hourly_seconds,
+        'peak_hours': peak_hours,
+        'context_switches': context_switches,
+        'longest_focus_seconds': longest_focus_seconds,
+        'start_time': start_time,
+        'end_time': end_time,
+        'break_seconds': break_seconds,
+        'goal_pct': goal_pct,
+        'tags': tags,
+        'app_distribution': app_distribution,
+        'top_windows': top_windows,
+        'summaries_count': len(summaries),
+        'apps': apps
+    }
+
+
+@app.route('/api/analytics/summary/day/<date>')
+def get_analytics_summary_day(date):
+    """Get analytics summary for a specific day."""
+    # Validate date format
+    try:
+        target_date = datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+
+    # Check if future date
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    is_future = target_date > today
+    is_today = target_date.date() == datetime.now().date()
+
+    if is_future:
+        return jsonify({
+            'date': date,
+            'label': target_date.strftime('%A, %B %-d, %Y'),
+            'has_data': False,
+            'active_time_seconds': 0,
+            'hourly_activity': [0] * 24,
+            'stats': {
+                'active_seconds': 0,
+                'break_seconds': 0,
+                'start_time': None,
+                'end_time': None,
+                'context_switches': 0,
+                'longest_focus_seconds': 0,
+                'goal_seconds': DAILY_GOAL_SECONDS,
+                'goal_pct': 0
+            },
+            'peak_hours': [0] * 24,
+            'tags': [],
+            'app_distribution': [],
+            'top_windows': []
+        })
+
+    try:
+        storage = ActivityStorage()
+        day_data = _get_day_data(storage, date, is_today)
+
+        if not day_data:
+            return jsonify({'error': 'Failed to fetch day data'}), 500
+
+        has_data = day_data['active_seconds'] > 0
+        current_hour = datetime.now().hour if is_today else None
+
+        return jsonify({
+            'date': date,
+            'label': target_date.strftime('%A, %B %-d, %Y'),
+            'has_data': has_data,
+            'current_hour': current_hour,
+            'active_time_seconds': day_data['active_seconds'],
+            'hourly_activity': day_data['hourly_activity'],
+            'stats': {
+                'active_seconds': day_data['active_seconds'],
+                'break_seconds': day_data['break_seconds'],
+                'start_time': day_data['start_time'],
+                'end_time': day_data['end_time'],
+                'context_switches': day_data['context_switches'],
+                'longest_focus_seconds': day_data['longest_focus_seconds'],
+                'goal_seconds': DAILY_GOAL_SECONDS,
+                'goal_pct': day_data['goal_pct']
+            },
+            'peak_hours': day_data['peak_hours'],
+            'tags': day_data['tags'],
+            'app_distribution': day_data['app_distribution'],
+            'top_windows': day_data['top_windows'],
+            'ai_summary': None,  # MVP: not implemented
+            'summaries_count': day_data['summaries_count']
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to get day analytics: {str(e)}'}), 500
+
+
+@app.route('/api/analytics/summary/week/<int:year>/<int:week>')
+def get_analytics_summary_week(year, week):
+    """Get analytics summary for a specific ISO week."""
+    # Validate week number
+    if week < 1 or week > 53:
+        return jsonify({'error': 'Invalid week number (1-53)'}), 400
+
+    try:
+        # Get first and last day of ISO week
+        first_day = datetime.fromisocalendar(year, week, 1)  # Monday
+        last_day = datetime.fromisocalendar(year, week, 7)   # Sunday
+    except ValueError:
+        return jsonify({'error': 'Invalid year/week combination'}), 400
+
+    today = datetime.now().date()
+    is_current_week = first_day.date() <= today <= last_day.date()
+    today_index = (today - first_day.date()).days if is_current_week else None
+
+    # Check if entirely in the future
+    if first_day.date() > today:
+        return jsonify({
+            'year': year,
+            'week': week,
+            'label': f'Week {week}, {year}',
+            'date_range': f'{first_day.strftime("%b %-d, %Y")} - {last_day.strftime("%b %-d, %Y")}',
+            'has_data': False,
+            'today_index': None,
+            'active_time_seconds': 0,
+            'daily_activity': [None] * 7,
+            'stats': {
+                'active_seconds': 0,
+                'avg_daily_seconds': 0,
+                'break_seconds': 0,
+                'typical_start': None,
+                'typical_end': None,
+                'avg_context_switches': 0,
+                'longest_focus_seconds': 0,
+                'active_days': 0,
+                'goal_seconds': WEEKLY_GOAL_SECONDS,
+                'goal_pct': 0
+            },
+            'peak_hours_avg': [0] * 24,
+            'tags': [],
+            'app_distribution': [],
+            'top_windows': [],
+            'daily_breakdown': {'hours': [None] * 7, 'breaks': [None] * 7}
+        })
+
+    try:
+        storage = ActivityStorage()
+
+        # Aggregate data for each day of the week
+        daily_activity = []
+        daily_hours = []
+        daily_breaks = []
+        all_tags = {}
+        all_apps = {}
+        all_windows = {}
+        all_hourly = [0] * 24
+        total_seconds = 0
+        total_context_switches = 0
+        longest_focus = 0
+        active_days = 0
+        start_times = []
+        end_times = []
+
+        for day_offset in range(7):
+            day_date = first_day + timedelta(days=day_offset)
+            date_str = day_date.strftime('%Y-%m-%d')
+
+            # Check if this day is in the future
+            if day_date.date() > today:
+                daily_activity.append(None)
+                daily_hours.append(None)
+                daily_breaks.append(None)
+                continue
+
+            day_data = _get_day_data(storage, date_str)
+            if not day_data:
+                daily_activity.append(0)
+                daily_hours.append(0)
+                daily_breaks.append(0)
+                continue
+
+            day_seconds = day_data['active_seconds']
+            daily_activity.append(day_seconds)
+            daily_hours.append(day_seconds)
+            daily_breaks.append(day_data['break_seconds'])
+
+            if day_seconds > 0:
+                active_days += 1
+                total_seconds += day_seconds
+                total_context_switches += day_data['context_switches']
+
+                if day_data['longest_focus_seconds'] > longest_focus:
+                    longest_focus = day_data['longest_focus_seconds']
+
+                if day_data['start_time']:
+                    start_times.append(day_data['start_time'])
+                if day_data['end_time']:
+                    end_times.append(day_data['end_time'])
+
+                # Aggregate hourly data
+                for i, secs in enumerate(day_data.get('hourly_seconds', [])):
+                    all_hourly[i] += secs
+
+                # Aggregate tags
+                for tag in day_data.get('tags', []):
+                    name = tag['name']
+                    all_tags[name] = all_tags.get(name, 0) + tag['count']
+
+                # Aggregate apps
+                for app in day_data.get('app_distribution', []):
+                    name = app['app']
+                    all_apps[name] = all_apps.get(name, 0) + app['seconds']
+
+                # Aggregate windows
+                for w in day_data.get('top_windows', []):
+                    key = (w['app'], w['title'])
+                    all_windows[key] = all_windows.get(key, 0) + w['seconds']
+
+        # Calculate averages
+        avg_daily_seconds = int(total_seconds / active_days) if active_days > 0 else 0
+        avg_context_switches = int(total_context_switches / active_days) if active_days > 0 else 0
+        total_breaks = sum(b for b in daily_breaks if b is not None)
+
+        # Peak hours normalized
+        max_hourly = max(all_hourly) if all_hourly else 1
+        peak_hours_avg = [int((s / max_hourly) * 100) if max_hourly > 0 else 0 for s in all_hourly]
+
+        # Sort and format tags
+        sorted_tags = sorted(all_tags.items(), key=lambda x: -x[1])[:10]
+        tags = [{'name': t[0], 'count': t[1]} for t in sorted_tags]
+
+        # Sort and format apps with colors
+        sorted_apps = sorted(all_apps.items(), key=lambda x: -x[1])
+        app_distribution = []
+        other_seconds = 0
+        for i, (app_name, app_seconds) in enumerate(sorted_apps):
+            if i < 7:
+                pct = int((app_seconds / total_seconds) * 100) if total_seconds > 0 else 0
+                app_distribution.append({
+                    'app': app_name,
+                    'seconds': app_seconds,
+                    'pct': pct,
+                    'color': APP_COLORS[i]
+                })
+            else:
+                other_seconds += app_seconds
+
+        if other_seconds > 0:
+            pct = int((other_seconds / total_seconds) * 100) if total_seconds > 0 else 0
+            app_distribution.append({
+                'app': 'Other',
+                'seconds': other_seconds,
+                'pct': pct,
+                'color': APP_COLORS[7]
+            })
+
+        # Top windows
+        sorted_windows = sorted(all_windows.items(), key=lambda x: -x[1])[:6]
+        top_windows = [{'app': w[0][0], 'title': w[0][1], 'seconds': w[1]} for w in sorted_windows]
+
+        # Typical start/end (most common)
+        typical_start = start_times[len(start_times) // 2] if start_times else None
+        typical_end = end_times[len(end_times) // 2] if end_times else None
+
+        goal_pct = int((total_seconds / WEEKLY_GOAL_SECONDS) * 100) if WEEKLY_GOAL_SECONDS > 0 else 0
+
+        return jsonify({
+            'year': year,
+            'week': week,
+            'label': f'Week {week}, {year}',
+            'date_range': f'{first_day.strftime("%b %-d, %Y")} - {last_day.strftime("%b %-d, %Y")}',
+            'has_data': total_seconds > 0,
+            'today_index': today_index,
+            'active_time_seconds': total_seconds,
+            'daily_activity': daily_activity,
+            'stats': {
+                'active_seconds': total_seconds,
+                'avg_daily_seconds': avg_daily_seconds,
+                'break_seconds': total_breaks,
+                'typical_start': typical_start,
+                'typical_end': typical_end,
+                'avg_context_switches': avg_context_switches,
+                'longest_focus_seconds': longest_focus,
+                'active_days': active_days,
+                'goal_seconds': WEEKLY_GOAL_SECONDS,
+                'goal_pct': goal_pct
+            },
+            'peak_hours_avg': peak_hours_avg,
+            'tags': tags,
+            'app_distribution': app_distribution,
+            'top_windows': top_windows,
+            'daily_breakdown': {
+                'hours': daily_hours,
+                'breaks': daily_breaks
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to get week analytics: {str(e)}'}), 500
+
+
+@app.route('/api/analytics/summary/month/<int:year>/<int:month>')
+def get_analytics_summary_month(year, month):
+    """Get analytics summary for a specific month."""
+    # Validate month
+    if month < 1 or month > 12:
+        return jsonify({'error': 'Invalid month (1-12)'}), 400
+
+    try:
+        first_day = datetime(year, month, 1)
+        # Get last day of month
+        if month == 12:
+            last_day = datetime(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            last_day = datetime(year, month + 1, 1) - timedelta(days=1)
+    except ValueError:
+        return jsonify({'error': 'Invalid year/month combination'}), 400
+
+    today = datetime.now().date()
+    is_current_month = first_day.year == today.year and first_day.month == today.month
+
+    # Check if entirely in the future
+    if first_day.date() > today:
+        return jsonify({
+            'year': year,
+            'month': month,
+            'label': first_day.strftime('%B %Y'),
+            'date_range': f'{first_day.strftime("%b %-d")} - {last_day.strftime("%b %-d, %Y")}',
+            'has_data': False,
+            'current_week_index': None,
+            'active_time_seconds': 0,
+            'weekly_activity': [],
+            'stats': {
+                'active_seconds': 0,
+                'avg_daily_seconds': 0,
+                'break_seconds': 0,
+                'typical_start': None,
+                'typical_end': None,
+                'avg_context_switches': 0,
+                'longest_focus_seconds': 0,
+                'active_days': 0,
+                'goal_seconds': MONTHLY_GOAL_SECONDS,
+                'goal_pct': 0
+            },
+            'peak_hours_avg': [0] * 24,
+            'tags': [],
+            'app_distribution': [],
+            'top_windows': [],
+            'weekly_breakdown': {'hours': [], 'breaks': [], 'labels': []}
+        })
+
+    try:
+        storage = ActivityStorage()
+
+        # Group days into calendar weeks
+        weeks = []
+        current_week_start = first_day
+        while current_week_start <= last_day:
+            # Find end of this week (Saturday) or end of month
+            days_to_end_of_week = 6 - current_week_start.weekday()
+            current_week_end = min(current_week_start + timedelta(days=days_to_end_of_week), last_day)
+            weeks.append((current_week_start, current_week_end))
+            current_week_start = current_week_end + timedelta(days=1)
+
+        # Aggregate data
+        weekly_activity = []
+        weekly_hours = []
+        weekly_breaks = []
+        weekly_labels = []
+        all_tags = {}
+        all_apps = {}
+        all_windows = {}
+        all_hourly = [0] * 24
+        total_seconds = 0
+        total_breaks = 0
+        total_context_switches = 0
+        longest_focus = 0
+        active_days = 0
+        start_times = []
+        end_times = []
+        current_week_index = None
+        days_counted = 0
+
+        for week_idx, (week_start, week_end) in enumerate(weeks):
+            week_label = f'W{week_idx + 1}'
+            weekly_labels.append(week_label)
+
+            # Check if this week contains today
+            if is_current_month and week_start.date() <= today <= week_end.date():
+                current_week_index = week_idx
+
+            week_seconds = 0
+            week_breaks = 0
+
+            # Iterate through each day of the week
+            current_day = week_start
+            while current_day <= week_end:
+                date_str = current_day.strftime('%Y-%m-%d')
+
+                # Skip future days
+                if current_day.date() > today:
+                    current_day += timedelta(days=1)
+                    continue
+
+                days_counted += 1
+                day_data = _get_day_data(storage, date_str)
+
+                if day_data:
+                    day_seconds = day_data['active_seconds']
+                    week_seconds += day_seconds
+                    week_breaks += day_data['break_seconds']
+
+                    if day_seconds > 0:
+                        active_days += 1
+                        total_context_switches += day_data['context_switches']
+
+                        if day_data['longest_focus_seconds'] > longest_focus:
+                            longest_focus = day_data['longest_focus_seconds']
+
+                        if day_data['start_time']:
+                            start_times.append(day_data['start_time'])
+                        if day_data['end_time']:
+                            end_times.append(day_data['end_time'])
+
+                        # Aggregate hourly data
+                        for i, secs in enumerate(day_data.get('hourly_seconds', [])):
+                            all_hourly[i] += secs
+
+                        # Aggregate tags
+                        for tag in day_data.get('tags', []):
+                            name = tag['name']
+                            all_tags[name] = all_tags.get(name, 0) + tag['count']
+
+                        # Aggregate apps
+                        for app in day_data.get('app_distribution', []):
+                            name = app['app']
+                            all_apps[name] = all_apps.get(name, 0) + app['seconds']
+
+                        # Aggregate windows
+                        for w in day_data.get('top_windows', []):
+                            key = (w['app'], w['title'])
+                            all_windows[key] = all_windows.get(key, 0) + w['seconds']
+
+                current_day += timedelta(days=1)
+
+            weekly_activity.append(week_seconds)
+            weekly_hours.append(week_seconds)
+            weekly_breaks.append(week_breaks)
+            total_seconds += week_seconds
+            total_breaks += week_breaks
+
+        # Calculate averages
+        avg_daily_seconds = int(total_seconds / active_days) if active_days > 0 else 0
+        avg_context_switches = int(total_context_switches / active_days) if active_days > 0 else 0
+
+        # Peak hours normalized
+        max_hourly = max(all_hourly) if all_hourly else 1
+        peak_hours_avg = [int((s / max_hourly) * 100) if max_hourly > 0 else 0 for s in all_hourly]
+
+        # Sort and format tags
+        sorted_tags = sorted(all_tags.items(), key=lambda x: -x[1])[:10]
+        tags = [{'name': t[0], 'count': t[1]} for t in sorted_tags]
+
+        # Sort and format apps with colors
+        sorted_apps = sorted(all_apps.items(), key=lambda x: -x[1])
+        app_distribution = []
+        other_seconds = 0
+        for i, (app_name, app_seconds) in enumerate(sorted_apps):
+            if i < 7:
+                pct = int((app_seconds / total_seconds) * 100) if total_seconds > 0 else 0
+                app_distribution.append({
+                    'app': app_name,
+                    'seconds': app_seconds,
+                    'pct': pct,
+                    'color': APP_COLORS[i]
+                })
+            else:
+                other_seconds += app_seconds
+
+        if other_seconds > 0:
+            pct = int((other_seconds / total_seconds) * 100) if total_seconds > 0 else 0
+            app_distribution.append({
+                'app': 'Other',
+                'seconds': other_seconds,
+                'pct': pct,
+                'color': APP_COLORS[7]
+            })
+
+        # Top windows
+        sorted_windows = sorted(all_windows.items(), key=lambda x: -x[1])[:6]
+        top_windows = [{'app': w[0][0], 'title': w[0][1], 'seconds': w[1]} for w in sorted_windows]
+
+        # Typical start/end (median)
+        typical_start = start_times[len(start_times) // 2] if start_times else None
+        typical_end = end_times[len(end_times) // 2] if end_times else None
+
+        goal_pct = int((total_seconds / MONTHLY_GOAL_SECONDS) * 100) if MONTHLY_GOAL_SECONDS > 0 else 0
+
+        return jsonify({
+            'year': year,
+            'month': month,
+            'label': first_day.strftime('%B %Y'),
+            'date_range': f'{first_day.strftime("%b %-d")} - {last_day.strftime("%b %-d, %Y")}',
+            'has_data': total_seconds > 0,
+            'current_week_index': current_week_index,
+            'active_time_seconds': total_seconds,
+            'weekly_activity': weekly_activity,
+            'stats': {
+                'active_seconds': total_seconds,
+                'avg_daily_seconds': avg_daily_seconds,
+                'break_seconds': total_breaks,
+                'typical_start': typical_start,
+                'typical_end': typical_end,
+                'avg_context_switches': avg_context_switches,
+                'longest_focus_seconds': longest_focus,
+                'active_days': active_days,
+                'goal_seconds': MONTHLY_GOAL_SECONDS,
+                'goal_pct': goal_pct
+            },
+            'peak_hours_avg': peak_hours_avg,
+            'tags': tags,
+            'app_distribution': app_distribution,
+            'top_windows': top_windows,
+            'weekly_breakdown': {
+                'hours': weekly_hours,
+                'breaks': weekly_breaks,
+                'labels': weekly_labels
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to get month analytics: {str(e)}'}), 500
+
+
 @app.route('/api/summaries/<date_string>')
 def api_summaries_for_date(date_string):
     """JSON API for activity summaries for a specific date."""
@@ -1287,6 +1982,12 @@ def api_get_session(session_id):
 def settings_page():
     """Render settings page."""
     return render_template('settings.html')
+
+
+@app.route('/api/settings-drawer')
+def settings_drawer_content():
+    """Return settings form content for drawer (without base template)."""
+    return render_template('partials/settings_content.html')
 
 
 @app.route('/api/config', methods=['GET'])
@@ -1989,7 +2690,10 @@ def api_get_worker_status():
 
 @app.route('/api/threshold-summaries/generate', methods=['POST'])
 def api_force_generate_summaries():
-    """Force immediate summarization of pending screenshots.
+    """Force immediate summarization of unsummarized sessions.
+
+    Uses session-based summarization: finds completed sessions without
+    summaries and queues them for processing.
 
     Request body (optional):
         {"date": "2025-12-12"}  - Limit to specific day
@@ -2011,12 +2715,12 @@ def api_force_generate_summaries():
         date = request.json.get('date')
 
     try:
-        count = summarizer_worker.force_summarize_pending(date=date)
+        count = summarizer_worker.force_summarize_sessions(date=date)
         if count == 0:
             return jsonify({
                 "status": "no_pending",
                 "count": 0,
-                "message": f"No unsummarized screenshots{' for ' + date if date else ''}"
+                "message": f"No unsummarized sessions{' for ' + date if date else ''}"
             })
         return jsonify({
             "status": "queued",

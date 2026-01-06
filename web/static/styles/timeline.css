@@ -218,6 +218,7 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
+    flex-shrink: 0;  /* Prevent squishing when tags section grows */
 }
 
 .calendar-toggle {
@@ -710,173 +711,7 @@
     color: var(--text);
 }
 
-/* Image modal - timeline specific overrides */
-#imageModal.modal {
-    z-index: 2000;
-}
-
-#imageModal.modal.active {
-    flex-direction: column;
-}
-
-#imageModal .modal-content {
-    position: relative;
-    max-width: 95%;
-    max-height: 85%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    padding: 0;
-}
-
-.modal-image {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    display: block;
-}
-
-#imageModal .modal-close {
-    position: absolute;
-    top: 20px;
-    right: 30px;
-    color: var(--text);
-    font-size: 3rem;
-    cursor: pointer;
-    z-index: 2001;
-    transition: color 0.2s;
-    line-height: 1;
-    background: none;
-    border: none;
-}
-
-#imageModal .modal-close:hover {
-    color: var(--accent);
-}
-
-.modal-nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: var(--floating-surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 2rem;
-    width: 50px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    z-index: 2001;
-    user-select: none;
-}
-
-.modal-nav:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--text-inverse);
-}
-
-.modal-nav.disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
-
-.modal-nav.disabled:hover {
-    background: var(--floating-surface);
-    border-color: var(--border);
-    color: var(--text);
-}
-
-.modal-nav-prev {
-    left: 20px;
-}
-
-.modal-nav-next {
-    right: 20px;
-}
-
-.modal-info {
-    margin-top: 20px;
-    padding: 15px 25px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    max-width: 800px;
-    width: 90%;
-}
-
-.modal-metadata {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-meta-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.modal-meta-label {
-    font-size: 0.75rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.modal-meta-value {
-    font-size: 0.95rem;
-    color: var(--text);
-    font-weight: 500;
-}
-
-.modal-counter {
-    font-size: 0.9rem;
-    color: var(--accent);
-    font-weight: 600;
-}
-
-.modal-shortcuts {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border);
-    text-align: center;
-    font-size: 0.8rem;
-    color: var(--muted);
-}
-
-.modal-view-all-link {
-    display: block;
-    margin-top: 10px;
-    text-align: center;
-    font-size: 0.8rem;
-    color: var(--accent);
-    text-decoration: none;
-}
-
-.modal-view-all-link:hover {
-    text-decoration: underline;
-}
-
-/* Timeline page local shortcut-key style */
-#imageModal .shortcut-key {
-    display: inline-block;
-    padding: 2px 6px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    font-family: monospace;
-    font-size: 0.85rem;
-    margin: 0 2px;
-}
+/* Screenshot modal styles are in base.css */
 
 /* Loading state */
 .loading {
@@ -1386,44 +1221,6 @@
 
     .hour-content {
         grid-template-columns: 1fr;
-    }
-
-    #imageModal .modal-content {
-        max-width: 100%;
-        max-height: 70%;
-    }
-
-    .modal-nav {
-        width: 40px;
-        height: 40px;
-        font-size: 1.5rem;
-    }
-
-    .modal-nav-prev {
-        left: 10px;
-    }
-
-    .modal-nav-next {
-        right: 10px;
-    }
-
-    .modal-info {
-        width: 95%;
-        padding: 12px 15px;
-    }
-
-    .modal-metadata {
-        gap: 15px;
-    }
-
-    .modal-shortcuts {
-        font-size: 0.7rem;
-    }
-
-    #imageModal .modal-close {
-        top: 10px;
-        right: 15px;
-        font-size: 2rem;
     }
 
     .keyboard-hint {
@@ -2648,7 +2445,7 @@
     flex-direction: column;
     gap: 16px;
     padding: 16px;
-    background: var(--surface-2);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
 }

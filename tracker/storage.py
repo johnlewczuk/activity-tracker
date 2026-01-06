@@ -2832,19 +2832,38 @@ class ActivityStorage:
             active_session = cursor.fetchone()
             is_active = active_session is not None
 
-            # If there's an active session and we haven't recorded a last_break_end yet,
-            # check if the active session started after a break
-            if is_active and active_session and sessions:
-                last_completed_end = sessions[-1]['end_time']
-                if last_completed_end:
-                    gap_to_active = (
-                        datetime.fromisoformat(active_session['start_time']) -
-                        datetime.fromisoformat(last_completed_end)
-                    ).total_seconds()
-                    if gap_to_active > 300:  # > 5 min gap = break
-                        last_break_end = active_session['start_time']
+            # Include active session in continuous work calculation
+            if is_active and active_session:
+                now = datetime.now()
+                active_start = datetime.fromisoformat(active_session['start_time'])
+                active_duration = int((now - active_start).total_seconds())
 
-            # Check final period
+                if last_end:
+                    # Check gap between last completed session and active session
+                    gap_to_active = (active_start - datetime.fromisoformat(last_end)).total_seconds()
+
+                    if gap_to_active > 300:  # > 5 min gap = break
+                        # Check if previous continuous period was longest
+                        if current_continuous > longest_continuous:
+                            longest_continuous = current_continuous
+                            longest_continuous_start = current_continuous_start
+                            longest_continuous_end = last_end
+                        # Start new continuous period with active session
+                        current_continuous = active_duration
+                        current_continuous_start = active_session['start_time']
+                        last_break_end = active_session['start_time']
+                    else:
+                        # Merge with previous continuous period
+                        current_continuous += active_duration
+                else:
+                    # Active session is the only session
+                    current_continuous = active_duration
+                    current_continuous_start = active_session['start_time']
+
+                # Update last_end to now for the active session
+                last_end = now.isoformat()
+
+            # Check final period (includes active session if present)
             if current_continuous > longest_continuous:
                 longest_continuous = current_continuous
                 longest_continuous_start = current_continuous_start
@@ -2858,6 +2877,12 @@ class ActivityStorage:
             last_dt = datetime.fromisoformat(last_session_end)
             workday_span = (last_dt - first_dt).total_seconds()
             active_percentage = (active_seconds / workday_span * 100) if workday_span > 0 else 0
+        elif is_active and active_session:
+            # Only an active session exists (no completed sessions yet)
+            first_session_start = active_session['start_time']
+            last_session_end = None
+            workday_span = 0
+            active_percentage = 0
         else:
             first_session_start = None
             last_session_end = None

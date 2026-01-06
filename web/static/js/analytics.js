@@ -1,338 +1,665 @@
-// Analytics Page JavaScript
+/**
+ * Analytics Summary Page JavaScript
+ * Handles Day/Week/Month views with navigation and data fetching
+ */
 
 (function() {
+    'use strict';
+
+    // State management
     const state = {
-        dateRange: 7,
-        charts: {},
-        data: {}
+        view: 'day',
+        // Day view state
+        date: getLocalDateString(new Date()),
+        // Week view state
+        weekYear: null,
+        weekNum: null,
+        // Month view state
+        monthYear: null,
+        month: null,
+        // Cache
+        loading: false
     };
+
+    // Day labels for week view
+    const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+    // Initialize current week/month
+    const now = new Date();
+    state.weekYear = getISOWeekYear(now);
+    state.weekNum = getISOWeek(now);
+    state.monthYear = now.getFullYear();
+    state.month = now.getMonth() + 1;
+
+    // ==================== Initialization ====================
 
     document.addEventListener('DOMContentLoaded', () => {
         setupEventListeners();
-        loadAllData();
+        // Load initial view (day)
+        fetchDayData();
     });
 
     function setupEventListeners() {
-        document.querySelectorAll('.range-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                state.dateRange = parseInt(e.target.dataset.range);
-                loadAllData();
-            });
+        // Tab switching
+        document.querySelectorAll('.period-tab').forEach(tab => {
+            tab.addEventListener('click', () => switchView(tab.dataset.view));
         });
 
-        document.getElementById('refreshBtn').addEventListener('click', loadAllData);
+        // Day view controls
+        document.getElementById('day-prev')?.addEventListener('click', () => navigateDay(-1));
+        document.getElementById('day-next')?.addEventListener('click', () => navigateDay(1));
+        document.getElementById('day-today')?.addEventListener('click', goToToday);
+        document.getElementById('day-picker')?.addEventListener('change', onDatePickerChange);
+
+        // Week view controls
+        document.getElementById('week-prev')?.addEventListener('click', () => navigateWeek(-1));
+        document.getElementById('week-next')?.addEventListener('click', () => navigateWeek(1));
+        document.getElementById('week-today')?.addEventListener('click', goToThisWeek);
+
+        // Month view controls
+        document.getElementById('month-prev')?.addEventListener('click', () => navigateMonth(-1));
+        document.getElementById('month-next')?.addEventListener('click', () => navigateMonth(1));
+        document.getElementById('month-today')?.addEventListener('click', goToThisMonth);
     }
 
-    async function loadAllData() {
+    // ==================== View Switching ====================
+
+    function switchView(view) {
+        state.view = view;
+
+        // Update tabs
+        document.querySelectorAll('.period-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.view === view);
+        });
+
+        // Update containers
+        document.querySelectorAll('.view-container').forEach(container => {
+            container.classList.toggle('active', container.id === `${view}-view`);
+        });
+
+        // Fetch data for new view
+        if (view === 'day') fetchDayData();
+        else if (view === 'week') fetchWeekData();
+        else if (view === 'month') fetchMonthData();
+    }
+
+    // ==================== Day View ====================
+
+    function navigateDay(delta) {
+        // Parse YYYY-MM-DD as local date (not UTC) to avoid timezone issues
+        const [year, month, day] = state.date.split('-').map(Number);
+        const current = new Date(year, month - 1, day);
+        current.setDate(current.getDate() + delta);
+        state.date = getLocalDateString(current);
+        updateDatePicker();
+        fetchDayData();
+    }
+
+    function goToToday() {
+        state.date = getLocalDateString(new Date());
+        updateDatePicker();
+        fetchDayData();
+    }
+
+    function onDatePickerChange(e) {
+        state.date = e.target.value;
+        fetchDayData();
+    }
+
+    function updateDatePicker() {
+        const picker = document.getElementById('day-picker');
+        if (picker) picker.value = state.date;
+    }
+
+    async function fetchDayData() {
+        if (state.loading) return;
+        state.loading = true;
+
         try {
-            const [aiData, focusData] = await Promise.all([
-                fetch(`/api/analytics/ai?days=${state.dateRange}`).then(r => r.json()),
-                fetch(`/api/analytics/focus/${getLocalDateString(new Date())}`).then(r => r.json())
-            ]);
+            const response = await fetch(`/api/analytics/summary/day/${state.date}`);
+            const data = await response.json();
 
-            state.data.ai = aiData;
-            state.data.focus = focusData;
-
-            renderAIInsights(aiData);
-            renderFocusSection(focusData);
-            renderAppUsageFromFocus(focusData);
-            renderTrendChart(aiData);
-        } catch (error) {
-            console.error('Failed to load data:', error);
-        }
-    }
-
-    function renderAIInsights(data) {
-        document.getElementById('totalSummaries').textContent = data.total_summaries || 0;
-        document.getElementById('avgConfidence').textContent = data.avg_confidence ? `${Math.round(data.avg_confidence * 100)}%` : '-';
-        document.getElementById('highConfCount').textContent = data.confidence_distribution?.high || 0;
-        document.getElementById('uniqueTags').textContent = Object.keys(data.tag_counts || {}).length;
-
-        renderTagCloud(data.tag_counts);
-        renderConfidenceChart(data.confidence_distribution);
-        renderRecentSummaries(data.recent_summaries);
-    }
-
-    function renderTagCloud(tagCounts) {
-        const container = document.getElementById('tagCloud');
-        const entries = Object.entries(tagCounts || {});
-
-        if (entries.length === 0) {
-            container.innerHTML = '<div class="no-data">No tags generated yet.</div>';
-            return;
-        }
-
-        const maxCount = Math.max(...entries.map(e => e[1]));
-
-        container.innerHTML = entries.map(([tag, count]) => {
-            const ratio = count / maxCount;
-            let sizeClass = 'size-1';
-            if (ratio > 0.8) sizeClass = 'size-5';
-            else if (ratio > 0.6) sizeClass = 'size-4';
-            else if (ratio > 0.4) sizeClass = 'size-3';
-            else if (ratio > 0.2) sizeClass = 'size-2';
-
-            return `<span class="tag-item ${sizeClass}">${escapeHtml(tag)}<span class="tag-count">${count}</span></span>`;
-        }).join('');
-    }
-
-    function renderConfidenceChart(dist) {
-        const ctx = document.getElementById('confidenceChart').getContext('2d');
-        const theme = getThemeColors();
-
-        state.charts.confidence = destroyChart(state.charts.confidence);
-
-        const total = (dist?.high || 0) + (dist?.medium || 0) + (dist?.low || 0);
-        if (total === 0) {
-            ctx.font = '14px sans-serif';
-            ctx.fillStyle = theme.muted;
-            ctx.textAlign = 'center';
-            ctx.fillText('No confidence data yet', ctx.canvas.width / 2, ctx.canvas.height / 2);
-            return;
-        }
-
-        state.charts.confidence = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['High (≥80%)', 'Medium (50-80%)', 'Low (<50%)'],
-                datasets: [{
-                    data: [dist.high, dist.medium, dist.low],
-                    backgroundColor: [theme.success, theme.warning, theme.danger],
-                    borderColor: theme.bg,
-                    borderWidth: 3
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { color: theme.text, padding: 15 }
-                    }
-                }
+            if (data.error) {
+                console.error('Day data error:', data.error);
+                return;
             }
-        });
+
+            renderDayView(data);
+        } catch (error) {
+            console.error('Failed to fetch day data:', error);
+        } finally {
+            state.loading = false;
+        }
     }
 
-    function renderRecentSummaries(summaries) {
-        const container = document.getElementById('recentSummaries');
+    function renderDayView(data) {
+        // Update header
+        document.getElementById('day-label').textContent = data.label;
+        document.getElementById('day-active-time').textContent =
+            data.has_data ? `${formatDurationHM(data.active_time_seconds)} active` : 'No activity';
 
-        if (!summaries || summaries.length === 0) {
-            container.innerHTML = '<li class="no-data">No summaries generated yet.</li>';
-            return;
+        // Update date picker
+        const picker = document.getElementById('day-picker');
+        if (picker) picker.value = data.date;
+
+        // Disable next button if today
+        const nextBtn = document.getElementById('day-next');
+        if (nextBtn) {
+            nextBtn.disabled = data.date === getLocalDateString(new Date());
         }
 
-        container.innerHTML = summaries.map(s => {
-            const time = s.start_time ? new Date(s.start_time).toLocaleString([], {
-                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-            }) : '-';
+        // Render activity chart (24 bars)
+        renderActivityChart('day-activity-chart', data.hourly_activity || [], 24, data.current_hour);
 
-            let confClass = 'conf-medium';
-            let confLabel = 'Medium';
-            if (s.confidence >= 0.8) { confClass = 'conf-high'; confLabel = 'High'; }
-            else if (s.confidence < 0.5) { confClass = 'conf-low'; confLabel = 'Low'; }
+        // Render stats
+        const stats = data.stats || {};
+        document.getElementById('day-stat-active').textContent = formatDurationHM(stats.active_seconds);
+        document.getElementById('day-stat-break').textContent = formatDurationHM(stats.break_seconds);
+        document.getElementById('day-stat-start').textContent = stats.start_time || '--';
+        document.getElementById('day-stat-end').textContent = stats.end_time || '--';
+        document.getElementById('day-stat-switches').textContent = stats.context_switches || 0;
+        document.getElementById('day-stat-focus').textContent = formatDurationHM(stats.longest_focus_seconds);
 
-            const tagsHtml = (s.tags || []).slice(0, 3).map(t =>
-                `<span class="summary-tag">${escapeHtml(t)}</span>`
-            ).join('');
+        // Goal progress
+        const goalPct = Math.min(stats.goal_pct || 0, 100);
+        document.getElementById('day-goal-fill').style.width = `${goalPct}%`;
+        document.getElementById('day-goal-pct').textContent = `${goalPct}%`;
 
-            return `
-                <li class="summary-item">
-                    <span class="summary-time">${time}</span>
-                    <div class="summary-content">
-                        <div class="summary-text">${escapeHtml(s.summary)}</div>
-                        <div class="summary-meta">
-                            ${tagsHtml}
-                            ${s.confidence !== null ? `<span class="confidence-badge ${confClass}">${confLabel}</span>` : ''}
-                            <a href="/summary/${s.id}" class="summary-link">View details</a>
-                        </div>
-                    </div>
-                </li>
-            `;
-        }).join('');
+        // Peak hours
+        renderPeakHours('day-peak-hours', data.peak_hours || []);
+        renderPeakInsight('day-peak-insight', data.peak_hours || []);
+
+        // Tags
+        renderTags('day-tags-list', data.tags || []);
+
+        // App distribution donut
+        renderDonut('day-donut-chart', 'day-donut-legend', data.app_distribution || []);
+
+        // Top windows
+        renderWindows('day-windows-list', data.top_windows || []);
     }
 
-    function renderFocusSection(data) {
-        if (!data || data.error) {
-            document.getElementById('trackedTime').textContent = '0m';
-            document.getElementById('contextSwitches').textContent = '0';
-            document.getElementById('longestFocus').textContent = '0m';
-            document.getElementById('appsUsed').textContent = '0';
-            document.getElementById('focusTimeline').innerHTML = '<div class="no-data" style="padding: 10px;">No focus data for today</div>';
-            return;
-        }
+    // ==================== Week View ====================
 
-        const metrics = data.metrics || {};
-        document.getElementById('trackedTime').textContent = formatDuration(metrics.total_tracked_seconds);
-        document.getElementById('contextSwitches').textContent = metrics.context_switches || 0;
-        document.getElementById('appsUsed').textContent = metrics.unique_apps || 0;
-
-        const longest = metrics.longest_focus_sessions?.[0];
-        document.getElementById('longestFocus').textContent = longest ? formatDuration(longest.duration_seconds) : '0m';
-
-        renderFocusTimeline(data.apps);
+    function navigateWeek(delta) {
+        let d = new Date();
+        d.setFullYear(state.weekYear);
+        // Set to Monday of the current ISO week
+        d = getDateFromISOWeek(state.weekYear, state.weekNum);
+        d.setDate(d.getDate() + (delta * 7));
+        state.weekYear = getISOWeekYear(d);
+        state.weekNum = getISOWeek(d);
+        fetchWeekData();
     }
 
-    function renderFocusTimeline(apps) {
-        const container = document.getElementById('focusTimeline');
-        const legend = document.getElementById('focusLegend');
+    function goToThisWeek() {
+        const now = new Date();
+        state.weekYear = getISOWeekYear(now);
+        state.weekNum = getISOWeek(now);
+        fetchWeekData();
+    }
 
-        if (!apps || apps.length === 0) {
-            container.innerHTML = '<div class="no-data" style="padding: 10px;">No focus data</div>';
-            legend.innerHTML = '';
-            return;
+    async function fetchWeekData() {
+        if (state.loading) return;
+        state.loading = true;
+
+        try {
+            const response = await fetch(`/api/analytics/summary/week/${state.weekYear}/${state.weekNum}`);
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('Week data error:', data.error);
+                return;
+            }
+
+            renderWeekView(data);
+        } catch (error) {
+            console.error('Failed to fetch week data:', error);
+        } finally {
+            state.loading = false;
+        }
+    }
+
+    function renderWeekView(data) {
+        // Update header
+        document.getElementById('week-label').textContent = data.label;
+        const activeText = data.has_data ? ` · ${formatDurationHM(data.active_time_seconds)} active` : '';
+        document.getElementById('week-dates').textContent = `${data.date_range}${activeText}`;
+
+        // Disable next button if current week
+        const now = new Date();
+        const isCurrentWeek = state.weekYear === getISOWeekYear(now) && state.weekNum === getISOWeek(now);
+        const nextBtn = document.getElementById('week-next');
+        if (nextBtn) nextBtn.disabled = isCurrentWeek;
+
+        // Render daily activity chart (7 bars)
+        renderWeekActivityChart('week-activity-chart', data.daily_activity || [], data.today_index);
+
+        // Render stats
+        const stats = data.stats || {};
+        document.getElementById('week-stat-active').textContent = formatDurationHM(stats.active_seconds);
+        document.getElementById('week-stat-avg').textContent = formatDurationHM(stats.avg_daily_seconds);
+        document.getElementById('week-stat-break').textContent = formatDurationHM(stats.break_seconds);
+        document.getElementById('week-stat-start').textContent = stats.typical_start || '--';
+        document.getElementById('week-stat-end').textContent = stats.typical_end || '--';
+        document.getElementById('week-stat-switches').textContent = stats.avg_context_switches || 0;
+        document.getElementById('week-stat-focus').textContent = formatDurationHM(stats.longest_focus_seconds);
+        document.getElementById('week-stat-days').textContent = `${stats.active_days || 0}/7`;
+
+        // Goal progress
+        const goalPct = Math.min(stats.goal_pct || 0, 100);
+        document.getElementById('week-goal-fill').style.width = `${goalPct}%`;
+        document.getElementById('week-goal-pct').textContent = `${goalPct}%`;
+
+        // Peak hours
+        renderPeakHours('week-peak-hours', data.peak_hours_avg || []);
+        renderPeakInsight('week-peak-insight', data.peak_hours_avg || []);
+
+        // Tags
+        renderTags('week-tags-list', data.tags || []);
+
+        // App distribution donut
+        renderDonut('week-donut-chart', 'week-donut-legend', data.app_distribution || []);
+
+        // Top windows
+        renderWindows('week-windows-list', data.top_windows || []);
+
+        // Daily breakdown
+        renderDailyBreakdown('week-daily-hours', data.daily_breakdown?.hours || [], DAY_LABELS, data.today_index);
+        renderDailyBreakdown('week-daily-breaks', data.daily_breakdown?.breaks || [], DAY_LABELS, data.today_index, true);
+    }
+
+    // ==================== Month View ====================
+
+    function navigateMonth(delta) {
+        let month = state.month + delta;
+        let year = state.monthYear;
+
+        if (month < 1) {
+            month = 12;
+            year--;
+        } else if (month > 12) {
+            month = 1;
+            year++;
         }
 
-        const colors = ['#58a6ff', '#f85149', '#3fb950', '#d29922', '#a371f7', '#ff7b72', '#79c0ff'];
-        const total = apps.reduce((sum, a) => sum + (a.total_seconds || 0), 0);
+        state.month = month;
+        state.monthYear = year;
+        fetchMonthData();
+    }
+
+    function goToThisMonth() {
+        const now = new Date();
+        state.monthYear = now.getFullYear();
+        state.month = now.getMonth() + 1;
+        fetchMonthData();
+    }
+
+    async function fetchMonthData() {
+        if (state.loading) return;
+        state.loading = true;
+
+        try {
+            const response = await fetch(`/api/analytics/summary/month/${state.monthYear}/${state.month}`);
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('Month data error:', data.error);
+                return;
+            }
+
+            renderMonthView(data);
+        } catch (error) {
+            console.error('Failed to fetch month data:', error);
+        } finally {
+            state.loading = false;
+        }
+    }
+
+    function renderMonthView(data) {
+        // Update header
+        document.getElementById('month-label').textContent = data.label;
+        const activeText = data.has_data ? ` · ${formatDurationHM(data.active_time_seconds)} active` : '';
+        document.getElementById('month-dates').textContent = `${data.date_range}${activeText}`;
+
+        // Disable next button if current month
+        const now = new Date();
+        const isCurrentMonth = state.monthYear === now.getFullYear() && state.month === (now.getMonth() + 1);
+        const nextBtn = document.getElementById('month-next');
+        if (nextBtn) nextBtn.disabled = isCurrentMonth;
+
+        // Render weekly activity chart
+        renderMonthActivityChart(
+            'month-activity-chart',
+            'month-activity-labels',
+            data.weekly_activity || [],
+            data.weekly_breakdown?.labels || [],
+            data.current_week_index
+        );
+
+        // Render stats
+        const stats = data.stats || {};
+        document.getElementById('month-stat-active').textContent = formatDurationHM(stats.active_seconds);
+        document.getElementById('month-stat-avg').textContent = formatDurationHM(stats.avg_daily_seconds);
+        document.getElementById('month-stat-break').textContent = formatDurationHM(stats.break_seconds);
+        document.getElementById('month-stat-start').textContent = stats.typical_start || '--';
+        document.getElementById('month-stat-end').textContent = stats.typical_end || '--';
+        document.getElementById('month-stat-switches').textContent = stats.avg_context_switches || 0;
+        document.getElementById('month-stat-focus').textContent = formatDurationHM(stats.longest_focus_seconds);
+        document.getElementById('month-stat-days').textContent = stats.active_days || 0;
+
+        // Goal progress
+        const goalPct = Math.min(stats.goal_pct || 0, 100);
+        document.getElementById('month-goal-fill').style.width = `${goalPct}%`;
+        document.getElementById('month-goal-pct').textContent = `${goalPct}%`;
+
+        // Peak hours
+        renderPeakHours('month-peak-hours', data.peak_hours_avg || []);
+        renderPeakInsight('month-peak-insight', data.peak_hours_avg || []);
+
+        // Tags
+        renderTags('month-tags-list', data.tags || []);
+
+        // App distribution donut
+        renderDonut('month-donut-chart', 'month-donut-legend', data.app_distribution || []);
+
+        // Top windows
+        renderWindows('month-windows-list', data.top_windows || []);
+
+        // Weekly breakdown
+        const breakdown = data.weekly_breakdown || {};
+        renderWeeklyBreakdown('month-weekly-hours', breakdown.hours || [], breakdown.labels || [], data.current_week_index);
+        renderWeeklyBreakdown('month-weekly-breaks', breakdown.breaks || [], breakdown.labels || [], data.current_week_index, true);
+    }
+
+    // ==================== Render Helpers ====================
+
+    function renderActivityChart(containerId, data, count, currentIndex) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const maxVal = Math.max(...data.filter(v => v != null), 1);
 
         let html = '';
-        let offset = 0;
-        apps.forEach((app, i) => {
-            const width = ((app.total_seconds || 0) / total) * 100;
-            if (width > 0.5) {
-                html += `<div class="timeline-block" style="left: ${offset}%; width: ${width}%; background: ${colors[i % colors.length]};" title="${app.app_name}: ${formatDuration(app.total_seconds)}"></div>`;
-                offset += width;
-            }
-        });
+        for (let i = 0; i < count; i++) {
+            const val = data[i] || 0;
+            const heightPct = maxVal > 0 ? Math.max((val / maxVal) * 100, val > 0 ? 5 : 0) : 0;
+            const barClass = getBarClass(val, maxVal);
+            const isCurrent = currentIndex !== null && i === currentIndex;
 
-        container.innerHTML = html || '<div class="no-data" style="padding: 10px;">No focus data</div>';
+            html += `<div class="activity-bar ${barClass}${isCurrent ? ' current' : ''}"
+                         style="height: ${heightPct}%"
+                         title="${i}:00 - ${val}min"></div>`;
+        }
 
-        legend.innerHTML = apps.slice(0, 5).map((app, i) => `
-            <div class="legend-item">
-                <div class="legend-color" style="background: ${colors[i % colors.length]}"></div>
-                <span>${app.app_name} (${formatDuration(app.total_seconds)})</span>
-            </div>
-        `).join('');
+        container.innerHTML = html;
     }
 
-    function renderAppUsageFromFocus(data) {
-        const apps = data?.apps || [];
-        const tbody = document.getElementById('appTableBody');
-        const theme = getThemeColors();
+    function renderWeekActivityChart(containerId, data, todayIndex) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
 
-        if (apps.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="no-data">No app usage data</td></tr>';
+        const validData = data.filter(v => v !== null);
+        const maxVal = validData.length > 0 ? Math.max(...validData, 1) : 1;
+
+        let html = '';
+        for (let i = 0; i < 7; i++) {
+            const val = data[i];
+            const isFuture = val === null;
+            const isCurrent = todayIndex !== null && i === todayIndex;
+
+            if (isFuture) {
+                html += `<div class="activity-bar future" title="${DAY_LABELS[i]}: Future"></div>`;
+            } else {
+                const heightPct = maxVal > 0 ? Math.max((val / maxVal) * 100, val > 0 ? 5 : 0) : 0;
+                const barClass = getBarClass(val, maxVal);
+                html += `<div class="activity-bar ${barClass}${isCurrent ? ' current' : ''}"
+                             style="height: ${heightPct}%"
+                             title="${DAY_LABELS[i]}: ${formatDurationHM(val)}"></div>`;
+            }
+        }
+
+        container.innerHTML = html;
+    }
+
+    function renderMonthActivityChart(containerId, labelsId, data, labels, currentIndex) {
+        const container = document.getElementById(containerId);
+        const labelsContainer = document.getElementById(labelsId);
+        if (!container) return;
+
+        const maxVal = Math.max(...data.filter(v => v != null), 1);
+
+        let html = '';
+        for (let i = 0; i < data.length; i++) {
+            const val = data[i] || 0;
+            const heightPct = maxVal > 0 ? Math.max((val / maxVal) * 100, val > 0 ? 5 : 0) : 0;
+            const barClass = getBarClass(val, maxVal);
+            const isCurrent = currentIndex !== null && i === currentIndex;
+            const label = labels[i] || `W${i + 1}`;
+
+            html += `<div class="activity-bar ${barClass}${isCurrent ? ' current' : ''}"
+                         style="height: ${heightPct}%"
+                         title="${label}: ${formatDurationHM(val)}"></div>`;
+        }
+
+        container.innerHTML = html;
+
+        // Render labels
+        if (labelsContainer) {
+            labelsContainer.innerHTML = labels.map(l => `<span>${l}</span>`).join('');
+        }
+    }
+
+    function renderPeakHours(containerId, data) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        let html = '';
+        for (let i = 0; i < 24; i++) {
+            const val = data[i] || 0;
+            const heightPct = Math.max(val, val > 0 ? 5 : 2);
+            const barClass = getPeakClass(val);
+
+            html += `<div class="peak-bar ${barClass}" style="height: ${heightPct}%" title="${i}:00"></div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    function renderPeakInsight(containerId, data) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        // Find peak hours (top 3)
+        const indexed = data.map((val, i) => ({ hour: i, val }));
+        const sorted = indexed.sort((a, b) => b.val - a.val);
+        const peaks = sorted.slice(0, 3).filter(p => p.val > 0);
+
+        if (peaks.length === 0) {
+            container.textContent = 'No activity data available.';
             return;
         }
 
-        const total = apps.reduce((sum, a) => sum + (a.total_seconds || 0), 0);
-
-        tbody.innerHTML = apps.slice(0, 15).map((app, i) => {
-            const pct = total > 0 ? ((app.total_seconds / total) * 100).toFixed(1) : 0;
-            return `
-                <tr>
-                    <td><span style="color: var(--muted); margin-right: 8px;">${i + 1}.</span>${escapeHtml(app.app_name)}</td>
-                    <td style="text-align: right;">${formatDuration(app.total_seconds)}</td>
-                    <td>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar" style="width: ${pct}%"></div>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        renderAppPieChart(apps.slice(0, 8));
+        const peakHours = peaks.map(p => formatHour(p.hour)).join(', ');
+        container.textContent = `Peak focus hours: ${peakHours}`;
     }
 
-    function renderAppPieChart(apps) {
-        const ctx = document.getElementById('appUsageChart').getContext('2d');
-        const theme = getThemeColors();
+    function renderTags(containerId, tags) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
 
-        state.charts.apps = destroyChart(state.charts.apps);
-
-        if (apps.length === 0) {
-            ctx.font = '14px sans-serif';
-            ctx.fillStyle = theme.muted;
-            ctx.textAlign = 'center';
-            ctx.fillText('No app usage data', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        if (!tags || tags.length === 0) {
+            container.innerHTML = '<span class="no-tags">No tags generated</span>';
             return;
         }
 
-        const colors = ['#58a6ff', '#f85149', '#3fb950', '#d29922', '#a371f7', '#ff7b72', '#79c0ff', '#ffa657'];
-
-        state.charts.apps = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: apps.map(a => a.app_name),
-                datasets: [{
-                    data: apps.map(a => a.total_seconds),
-                    backgroundColor: colors,
-                    borderColor: theme.bg,
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: { color: theme.text, font: { size: 11 } }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => `${ctx.label}: ${formatDuration(ctx.raw)}`
-                        }
-                    }
-                }
-            }
-        });
+        container.innerHTML = tags.map(tag =>
+            `<span class="tag-item">${escapeHtml(tag.name)}<span class="tag-count">${tag.count}</span></span>`
+        ).join('');
     }
 
-    function renderTrendChart(data) {
-        const ctx = document.getElementById('trendChart').getContext('2d');
-        const theme = getThemeColors();
+    function renderDonut(chartId, legendId, apps) {
+        const chart = document.getElementById(chartId);
+        const legend = document.getElementById(legendId);
+        if (!chart || !legend) return;
 
-        state.charts.trend = destroyChart(state.charts.trend);
-
-        const byDay = data.summaries_by_day || {};
-        const days = [];
-        const counts = [];
-
-        for (let i = state.dateRange - 1; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dateStr = getLocalDateString(d);
-            days.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-            counts.push(byDay[dateStr] || 0);
+        if (!apps || apps.length === 0) {
+            chart.style.background = 'var(--border)';
+            legend.innerHTML = '<span class="no-windows">No app data</span>';
+            return;
         }
 
-        state.charts.trend = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: days,
-                datasets: [{
-                    label: 'Summaries',
-                    data: counts,
-                    backgroundColor: theme.accent,
-                    borderColor: theme.accentStrong,
-                    borderWidth: 1,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { color: theme.muted, stepSize: 1 },
-                        grid: { color: theme.border }
-                    },
-                    x: {
-                        ticks: { color: theme.muted },
-                        grid: { display: false }
-                    }
-                },
-                plugins: {
-                    legend: { display: false }
-                }
-            }
+        // Build conic gradient
+        const segments = [];
+        let cumulative = 0;
+
+        apps.forEach(app => {
+            const start = cumulative;
+            cumulative += app.pct;
+            segments.push(`${app.color} ${start}% ${cumulative}%`);
         });
+
+        chart.style.background = `conic-gradient(${segments.join(', ')})`;
+
+        // Build legend
+        legend.innerHTML = apps.slice(0, 6).map(app =>
+            `<div class="legend-item">
+                <div class="legend-color" style="background: ${app.color}"></div>
+                <span class="legend-name">${escapeHtml(app.app)}</span>
+                <span class="legend-time">${formatDurationHM(app.seconds)}</span>
+            </div>`
+        ).join('');
     }
+
+    function renderWindows(containerId, windows) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        if (!windows || windows.length === 0) {
+            container.innerHTML = '<span class="no-windows">No window data</span>';
+            return;
+        }
+
+        container.innerHTML = windows.slice(0, 6).map(w =>
+            `<div class="window-item">
+                <div class="window-info">
+                    <div class="window-app">${escapeHtml(w.app)}</div>
+                    <div class="window-title">${escapeHtml(w.title || 'Untitled')}</div>
+                </div>
+                <div class="window-time">${formatDurationHM(w.seconds)}</div>
+            </div>`
+        ).join('');
+    }
+
+    function renderDailyBreakdown(containerId, data, labels, todayIndex, isBreak = false) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const validData = data.filter(v => v !== null);
+        const maxVal = validData.length > 0 ? Math.max(...validData, 1) : 1;
+
+        let html = '';
+        for (let i = 0; i < 7; i++) {
+            const val = data[i];
+            const isFuture = val === null;
+            const widthPct = !isFuture && maxVal > 0 ? Math.min((val / maxVal) * 100, 100) : 0;
+
+            html += `<div class="breakdown-row${isFuture ? ' future' : ''}">
+                <span class="breakdown-label">${labels[i]}</span>
+                <div class="breakdown-bar-container">
+                    <div class="breakdown-bar${isBreak ? ' break' : ''}" style="width: ${widthPct}%"></div>
+                </div>
+                <span class="breakdown-value">${isFuture ? '--' : formatDurationHM(val)}</span>
+            </div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    function renderWeeklyBreakdown(containerId, data, labels, currentIndex, isBreak = false) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const maxVal = data.length > 0 ? Math.max(...data, 1) : 1;
+
+        let html = '';
+        for (let i = 0; i < data.length; i++) {
+            const val = data[i] || 0;
+            const widthPct = maxVal > 0 ? Math.min((val / maxVal) * 100, 100) : 0;
+            const isCurrent = currentIndex !== null && i === currentIndex;
+
+            html += `<div class="breakdown-row${isCurrent ? ' current' : ''}">
+                <span class="breakdown-label">${labels[i] || `W${i + 1}`}</span>
+                <div class="breakdown-bar-container">
+                    <div class="breakdown-bar${isBreak ? ' break' : ''}" style="width: ${widthPct}%"></div>
+                </div>
+                <span class="breakdown-value">${formatDurationHM(val)}</span>
+            </div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ==================== Utility Functions ====================
+
+    function formatDurationHM(seconds) {
+        if (seconds == null || isNaN(seconds) || seconds === 0) return '0m';
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.round((seconds % 3600) / 60);
+        if (hours === 0) return `${mins}m`;
+        if (mins === 0) return `${hours}h`;
+        return `${hours}h ${mins}m`;
+    }
+
+    function formatHour(hour) {
+        if (hour === 0) return '12am';
+        if (hour === 12) return '12pm';
+        if (hour < 12) return `${hour}am`;
+        return `${hour - 12}pm`;
+    }
+
+    function getBarClass(value, maxValue) {
+        if (maxValue === 0 || value === 0) return 'low';
+        const pct = (value / maxValue) * 100;
+        if (pct >= 86) return 'peak';
+        if (pct >= 51) return 'high';
+        if (pct >= 21) return 'med';
+        return 'low';
+    }
+
+    function getPeakClass(value) {
+        if (value >= 75) return 'peak';
+        if (value >= 50) return 'high';
+        if (value >= 20) return 'med';
+        return 'low';
+    }
+
+    // ISO week utilities
+    function getISOWeek(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function getISOWeekYear(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        return d.getUTCFullYear();
+    }
+
+    function getDateFromISOWeek(year, week) {
+        const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+        const dayOfWeek = simple.getUTCDay();
+        const isoWeekStart = simple;
+        if (dayOfWeek <= 4) {
+            isoWeekStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+        } else {
+            isoWeekStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+        }
+        return isoWeekStart;
+    }
+
 })();
