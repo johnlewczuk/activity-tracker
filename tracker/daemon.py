@@ -660,10 +660,19 @@ class ActivityDaemon:
                 self.current_session_id = resumed_session
                 self.log(f"Resumed empty session {resumed_session}")
         else:
-            # No active session - don't start one yet, wait for user input
-            # The _handle_active callback will create a session when user becomes active
-            self.current_session_id = None
-            self.log("No active session, waiting for user activity")
+            # No active session - check if we can resume a recently-ended one
+            # This handles quick daemon restarts (e.g., after code changes)
+            recent_session = self.storage.get_recently_ended_session(max_age_seconds=30)
+            if recent_session:
+                session_id = recent_session["id"]
+                self.storage.reopen_session(session_id)
+                self.current_session_id = session_id
+                self.session_manager._current_session_id = session_id
+                self.log(f"Resumed recently-ended session {session_id} (quick restart)")
+            else:
+                # No resumable session - wait for user activity
+                self.current_session_id = None
+                self.log("No active session, waiting for user activity")
 
         # If we don't have a session but user is currently active, start one now
         # This handles the startup case where user is already at the computer

@@ -1055,6 +1055,66 @@ class ActivityStorage:
 
             return result
 
+    def get_recently_ended_session(self, max_age_seconds: int = 30) -> Optional[Dict]:
+        """Get the most recently ended session if it ended within the threshold.
+
+        This is used to resume sessions after quick daemon restarts.
+
+        Args:
+            max_age_seconds: Maximum seconds since session ended to consider it
+                resumable (default: 30 seconds).
+
+        Returns:
+            Session dictionary if found within threshold, None otherwise.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT id, start_time, end_time, duration_seconds, summary,
+                       screenshot_count, unique_windows, model_used, inference_time_ms,
+                       prompt_text, screenshot_ids_used
+                FROM activity_sessions
+                WHERE end_time IS NOT NULL
+                ORDER BY end_time DESC
+                LIMIT 1
+                """
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            result = dict(row)
+            end_time = datetime.fromisoformat(result["end_time"])
+            seconds_since_end = int((datetime.now() - end_time).total_seconds())
+
+            if seconds_since_end > max_age_seconds:
+                return None  # Too old to resume
+
+            # Parse screenshot_ids_used JSON if present
+            if result.get("screenshot_ids_used"):
+                result["screenshot_ids_used"] = json.loads(result["screenshot_ids_used"])
+
+            return result
+
+    def reopen_session(self, session_id: int) -> None:
+        """Reopen a session by clearing its end_time and duration.
+
+        Used to resume sessions after quick daemon restarts.
+
+        Args:
+            session_id: The session ID to reopen.
+        """
+        with self.get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE activity_sessions
+                SET end_time = NULL, duration_seconds = NULL
+                WHERE id = ?
+                """,
+                (session_id,),
+            )
+            conn.commit()
+
     def get_sessions_for_date(self, date: str) -> List[Dict]:
         """Get all sessions for a specific date.
 

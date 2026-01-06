@@ -1834,7 +1834,12 @@ def api_sessions_for_date(date_string):
         total_active_seconds = 0
 
         for session in sessions:
-            duration_seconds = session.get("duration_seconds") or 0
+            # For active sessions (no end_time), calculate live duration
+            if session.get("end_time") is None:
+                start_time = datetime.fromisoformat(session["start_time"])
+                duration_seconds = int((datetime.now() - start_time).total_seconds())
+            else:
+                duration_seconds = session.get("duration_seconds") or 0
             total_active_seconds += duration_seconds
 
             formatted_sessions.append({
