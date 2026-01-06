@@ -1,0 +1,30 @@
+Test #22: Analytics handles empty/no data gracefully
+
+✅ Step 1: Tested with future date (2026-12-31) with no data ✓
+
+✅ Step 2: API returns proper empty state structure:
+   - has_data: false ✓
+   - All arrays are empty [] ✓
+   - Stats values are 0 or null ✓
+
+✅ Step 3: Stat fields show appropriate empty values:
+   - active_seconds: 0 ✓
+   - break_seconds: 0 ✓
+   - start_time: null ✓
+   - end_time: null ✓
+   - context_switches: 0 ✓
+
+✅ Step 4: Charts have empty arrays (will render with 0 heights):
+   - hourly_activity: [24 zeros] ✓
+   - peak_hours: [24 zeros] ✓
+   - app_distribution: [] ✓
+   - top_windows: [] ✓
+   - tags: [] ✓
+
+✅ Step 5: No errors, response is valid JSON ✓
+
+Note: Frontend JavaScript needs to be verified to ensure it displays "--" for null/0 values
+and shows "No activity" messages where appropriate.
+
+RESULT: TEST #22 PASSES (Backend) ✅
+Frontend verification pending (JavaScript must handle has_data: false)

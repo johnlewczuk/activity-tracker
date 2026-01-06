@@ -1,0 +1,195 @@
+{
+    "active_time_seconds": 19888.992441000002,
+    "ai_summary": null,
+    "app_distribution": [
+        {
+            "app": "Google-chrome",
+            "color": "#58a6ff",
+            "pct": 42,
+            "seconds": 8514.887901
+        },
+        {
+            "app": "Tilix",
+            "color": "#3fb950",
+            "pct": 37,
+            "seconds": 7463.676747
+        },
+        {
+            "app": "Slack",
+            "color": "#f0883e",
+            "pct": 7,
+            "seconds": 1569.693862
+        },
+        {
+            "app": "zoom",
+            "color": "#a371f7",
+            "pct": 3,
+            "seconds": 764.269331
+        },
+        {
+            "app": "Code",
+            "color": "#ff7b72",
+            "pct": 2,
+            "seconds": 555.297019
+        },
+        {
+            "app": "org.gnome.Nautilus",
+            "color": "#79c0ff",
+            "pct": 1,
+            "seconds": 293.313376
+        },
+        {
+            "app": "xdg-desktop-portal-gnome",
+            "color": "#ffa657",
+            "pct": 1,
+            "seconds": 212.926829
+        },
+        {
+            "app": "Other",
+            "color": "#8b949e",
+            "pct": 2,
+            "seconds": 514.9273760000001
+        }
+    ],
+    "current_hour": 14,
+    "date": "2026-01-06",
+    "has_data": true,
+    "hourly_activity": [
+        9,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        46,
+        42,
+        59,
+        61,
+        58,
+        33,
+        18,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "label": "Tuesday, January 6, 2026",
+    "peak_hours": [
+        15,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        76,
+        69,
+        97,
+        100,
+        96,
+        55,
+        30,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "stats": {
+        "active_seconds": 19888.992441000002,
+        "break_seconds": 1113.0,
+        "context_switches": 361,
+        "end_time": "2:18 PM",
+        "goal_pct": 69,
+        "goal_seconds": 28800,
+        "longest_focus_seconds": 2687.663928,
+        "start_time": "12:00 AM"
+    },
+    "summaries_count": 2,
+    "tags": [
+        {
+            "count": 1,
+            "name": "web development"
+        },
+        {
+            "count": 1,
+            "name": "ai coding assistant"
+        },
+        {
+            "count": 1,
+            "name": "terminal activity"
+        },
+        {
+            "count": 1,
+            "name": "activity-tracker"
+        },
+        {
+            "count": 1,
+            "name": "mockup"
+        },
+        {
+            "count": 1,
+            "name": "cli"
+        },
+        {
+            "count": 1,
+            "name": "claude code"
+        },
+        {
+            "count": 1,
+            "name": "python"
+        },
+        {
+            "count": 1,
+            "name": "configuration"
+        },
+        {
+            "count": 1,
+            "name": "settings"
+        }
+    ],
+    "top_windows": [
+        {
+            "app": "Tilix",
+            "seconds": 7132.896288,
+            "title": "Tilix: tmux"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 2772.368096,
+            "title": "localhost - Google Chrome"
+        },
+        {
+            "app": "zoom",
+            "seconds": 675.243845,
+            "title": "Meeting"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 612.561072,
+            "title": "autonomous-coding - Claude Code Viewer - Google Chrome"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 523.9476970000001,
+            "title": "activity-tracker - Claude Code Viewer - Google Chrome"
+        },
+        {
+            "app": "Slack",
+            "seconds": 488.171423,
+            "title": "! Liam (DM) - Arcturus in Slackspace - 1 new item - Slack"
+        }
+    ]
+}

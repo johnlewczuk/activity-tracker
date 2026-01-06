@@ -1,0 +1,201 @@
+{
+    "active_time_seconds": 686560.8439614115,
+    "app_distribution": [
+        {
+            "app": "Tilix",
+            "color": "#58a6ff",
+            "pct": 45,
+            "seconds": 309852.1714961664
+        },
+        {
+            "app": "Google-chrome",
+            "color": "#3fb950",
+            "pct": 37,
+            "seconds": 258477.03655444947
+        },
+        {
+            "app": "Gjs",
+            "color": "#f0883e",
+            "pct": 4,
+            "seconds": 31154.17506963419
+        },
+        {
+            "app": "Slack",
+            "color": "#a371f7",
+            "pct": 4,
+            "seconds": 29455.22425510167
+        },
+        {
+            "app": "Code",
+            "color": "#ff7b72",
+            "pct": 2,
+            "seconds": 20385.62098878349
+        },
+        {
+            "app": "Gnome-terminal",
+            "color": "#79c0ff",
+            "pct": 1,
+            "seconds": 7377.226984888515
+        },
+        {
+            "app": "Other",
+            "color": "#ffa657",
+            "pct": 0,
+            "seconds": 6208.371018999999
+        },
+        {
+            "app": "Other",
+            "color": "#8b949e",
+            "pct": 3,
+            "seconds": 23651.017593387765
+        }
+    ],
+    "current_week_index": null,
+    "date_range": "Dec 1 - Dec 31, 2025",
+    "has_data": true,
+    "label": "December 2025",
+    "month": 12,
+    "peak_hours_avg": [
+        8,
+        7,
+        7,
+        13,
+        0,
+        0,
+        0,
+        0,
+        24,
+        2,
+        9,
+        8,
+        10,
+        8,
+        23,
+        100,
+        21,
+        46,
+        14,
+        22,
+        12,
+        1,
+        21,
+        10
+    ],
+    "stats": {
+        "active_days": 19,
+        "active_seconds": 686560.8439614115,
+        "avg_context_switches": 324,
+        "avg_daily_seconds": 36134,
+        "break_seconds": 11223.0,
+        "goal_pct": 119,
+        "goal_seconds": 576000,
+        "longest_focus_seconds": 63028.926212,
+        "typical_end": "9:55 AM",
+        "typical_start": "12:59 AM"
+    },
+    "tags": [
+        {
+            "count": 42,
+            "name": "debugging"
+        },
+        {
+            "count": 35,
+            "name": "activity-tracker"
+        },
+        {
+            "count": 29,
+            "name": "terminal"
+        },
+        {
+            "count": 19,
+            "name": "web-browsing"
+        },
+        {
+            "count": 18,
+            "name": "terminal-work"
+        },
+        {
+            "count": 15,
+            "name": "acusight"
+        },
+        {
+            "count": 10,
+            "name": "development"
+        },
+        {
+            "count": 10,
+            "name": "coding"
+        },
+        {
+            "count": 8,
+            "name": "configuration"
+        },
+        {
+            "count": 8,
+            "name": "focus-tracking"
+        }
+    ],
+    "top_windows": [
+        {
+            "app": "Tilix",
+            "seconds": 248195.77995000122,
+            "title": "Tilix: harshad@kraken: ~"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 90606.28693132638,
+            "title": "Acusight - Google Chrome"
+        },
+        {
+            "app": "Tilix",
+            "seconds": 57837.46886416517,
+            "title": "Tilix: harshad@kraken: ~/home/harshad"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 31173.03092743807,
+            "title": "Reports - Activity Tracker - Google Chrome"
+        },
+        {
+            "app": "Gjs",
+            "seconds": 31140.031880634193,
+            "title": "Desktop Icons 2"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 13515.340298016607,
+            "title": "Activity Timeline - Activity Tracker - Google Chrome"
+        }
+    ],
+    "weekly_activity": [
+        0,
+        142246.6986689845,
+        283449.2023100735,
+        121278.17015976572,
+        139586.77282258772
+    ],
+    "weekly_breakdown": {
+        "breaks": [
+            0,
+            9028.0,
+            454.0,
+            1741.0,
+            0
+        ],
+        "hours": [
+            0,
+            142246.6986689845,
+            283449.2023100735,
+            121278.17015976572,
+            139586.77282258772
+        ],
+        "labels": [
+            "W1",
+            "W2",
+            "W3",
+            "W4",
+            "W5"
+        ]
+    },
+    "year": 2025
+}

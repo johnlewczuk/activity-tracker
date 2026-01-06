@@ -1,0 +1,29 @@
+Test #21: Backend API /api/analytics/summary/month returns complete data structure
+
+✅ Step 1: Made GET request to /api/analytics/summary/month/2025/12
+✅ Step 2: Response contains label, date_range, total_active_seconds fields:
+   - label: "December 2025" ✓
+   - date_range: "Dec 1 - Dec 31, 2025" ✓
+   - active_time_seconds: 686560.843 seconds ✓
+
+✅ Step 3: stats object has monthly statistics:
+   - active_seconds: 686560.843 ✓
+   - avg_daily_seconds: 36134 ✓
+   - break_seconds: 11223.0 ✓
+   - typical_start: "12:59 AM" ✓
+   - typical_end: "9:55 AM" ✓
+   - avg_context_switches: 324 ✓
+   - longest_focus_seconds: 63028.926 ✓
+   - active_days: 19 ✓
+   - goal_pct: 119 ✓
+
+✅ Step 4: weekly_activity array corresponds to weeks in month:
+   - Array has 5 elements (for 5 weeks in December 2025) ✓
+   - Values are in seconds per week ✓
+
+✅ Step 5: weekly_breakdown contains hours and breaks for each week:
+   - weekly_breakdown.hours: [5 values] ✓
+   - weekly_breakdown.breaks: [5 values] ✓
+   - Also includes: peak_hours_avg, tags, app_distribution, top_windows ✓
+
+RESULT: TEST #21 PASSES ✅

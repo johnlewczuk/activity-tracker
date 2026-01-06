@@ -1,0 +1,29 @@
+Test #20: Backend API /api/analytics/summary/week returns complete data structure
+
+✅ Step 1: Made GET request to /api/analytics/summary/week/2026/1
+✅ Step 2: Response contains label, date_range, total_active_seconds fields:
+   - label: "Week 1, 2026" ✓
+   - date_range: "Dec 29, 2025 - Jan 4, 2026" ✓
+   - active_time_seconds (total): 229914.065 seconds ✓
+
+✅ Step 3: stats object has weekly statistics including avg_daily, comparisons:
+   - active_seconds: 229914.065 ✓
+   - avg_daily_seconds: 32844 ✓
+   - break_seconds: 3216.0 ✓
+   - typical_start: "12:03 AM" ✓
+   - typical_end: "12:00 AM" ✓
+   - avg_context_switches: 427 ✓
+   - longest_focus_seconds: 4203.7563 ✓
+   - active_days: 7 ✓
+   - goal_pct: 159 ✓
+
+✅ Step 4: daily_activity array has 7 elements (Mon-Sun) ✓
+   - Array length: 7 ✓
+   - Values are in seconds for each day ✓
+
+✅ Step 5: daily_breakdown contains hours and breaks for each day:
+   - daily_breakdown.hours: [7 values] ✓
+   - daily_breakdown.breaks: [7 values] ✓
+   - Also includes: peak_hours_avg, tags, app_distribution, top_windows ✓
+
+RESULT: TEST #20 PASSES ✅

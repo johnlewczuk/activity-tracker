@@ -1,0 +1,375 @@
+[
+  {
+    "category": "functional",
+    "description": "NEW: Day view displays hourly activity chart with accurate data from database",
+    "steps": [
+      "Step 1: Start Flask web app at localhost:55555",
+      "Step 2: Navigate to /analytics page",
+      "Step 3: Verify Day tab is active by default",
+      "Step 4: Verify hourly activity chart (24 bars) renders with actual data",
+      "Step 5: Hover over bars to see tooltips with time and duration"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Day view shows productivity score calculation with breakdown",
+    "steps": [
+      "Step 1: Navigate to /analytics (Day view)",
+      "Step 2: Scroll to productivity score section",
+      "Step 3: Verify score displays as number (e.g., +92.3)",
+      "Step 4": "Verify breakdown shows productive/neutral/distracting time with colored dots",
+      "Step 5: Verify percentages add up to 100%"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Day view displays comprehensive statistics cards",
+    "steps": [
+      "Step 1: Navigate to /analytics (Day view)",
+      "Step 2: Verify Active Time card shows duration in hours:minutes format",
+      "Step 3: Verify goal progress bar shows percentage toward 8h goal",
+      "Step 4: Verify Break Time, Start Time, End Time, Context Switches, and Longest Focus cards display correct data",
+      "Step 5: Check that '--' is shown when no data available"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Day view shows focus distribution (peak hours chart)",
+    "steps": [
+      "Step 1: Navigate to /analytics (Day view)",
+      "Step 2: Scroll to Focus Distribution section",
+      "Step 3: Verify 24 hourly bars render with varying heights based on focus time",
+      "Step 4: Verify insight text shows most focused hours (e.g., '10-11 AM and 2-3 PM')",
+      "Step 5: Verify bars have opacity classes (low/med/high/peak)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Day view displays activity tags from AI summaries",
+    "steps": [
+      "Step 1: Navigate to /analytics (Day view)",
+      "Step 2: Scroll to Activity Tags section",
+      "Step 3: Verify tags are displayed with horizontal bar charts",
+      "Step 4: Verify each tag shows name, progress bar, and count/duration",
+      "Step 5: Verify tags are sorted by frequency/duration"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Day view shows time distribution donut chart",
+    "steps": [
+      "Step 1: Navigate to /analytics (Day view)",
+      "Step 2: Scroll to Time Distribution section",
+      "Step 3: Verify SVG donut chart renders with colored segments for different apps",
+      "Step 4: Verify center shows total time (e.g., '6h 40m')",
+      "Step 5: Verify legend shows app names, colors, and percentages"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Day view lists top windows with time spent",
+    "steps": [
+      "Step 1: Navigate to /analytics (Day view)",
+      "Step 2: Scroll to Top Windows section",
+      "Step 3: Verify list shows app badges with window titles",
+      "Step 4: Verify time duration is shown for each window",
+      "Step 5: Verify windows are sorted by time (descending)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Week view displays daily activity chart with 7 bars",
+    "steps": [
+      "Step 1: Navigate to /analytics and click Week tab",
+      "Step 2: Verify week label shows 'Week N, YYYY' format",
+      "Step 3": "Verify date range subtitle shows start-end dates and total active time",
+      "Step 4: Verify 7 activity bars (M-S) render with heights based on daily hours",
+      "Step 5: Verify today's bar is highlighted in different color"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Week view shows 8 comprehensive stat cards with comparisons",
+    "steps": [
+      "Step 1: Navigate to /analytics Week view",
+      "Step 2: Verify Total Active Time card with goal progress (40h goal)",
+      "Step 3: Verify Avg Daily Hours card with change indicator (e.g., '+0.3h vs last week')",
+      "Step 4: Verify all 8 stat cards display: Total Active, Avg Daily, Break Time, Typical Start/End, Context Switches, Longest Focus, Active Days",
+      "Step 5: Verify change indicators show positive (green), negative (red), or neutral (gray)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Week view displays peak focus hours averaged across the week",
+    "steps": [
+      "Step 1: Navigate to /analytics Week view",
+      "Step 2: Scroll to Peak Focus Hours section",
+      "Step 3: Verify 24 hourly bars show average focus across all days",
+      "Step 4: Verify labels show 12am, 6am, 12pm, 6pm, 12am",
+      "Step 5: Verify insight text identifies most productive hours"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Week view shows aggregated activity tags with time totals",
+    "steps": [
+      "Step 1: Navigate to /analytics Week view",
+      "Step 2: Scroll to Activity Tags section",
+      "Step 3: Verify tags display total time (e.g., '18h 30m' not just counts)",
+      "Step 4: Verify horizontal bars show relative proportions",
+      "Step 5: Verify tags are sorted by total time"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Week view displays daily hours and daily breaks breakdown",
+    "steps": [
+      "Step 1: Navigate to /analytics Week view",
+      "Step 2: Scroll to bottom two-column section",
+      "Step 3: Verify Daily Hours shows 7 rows (Mon-Sun) with horizontal bars and time values",
+      "Step 4": "Verify Daily Breaks shows 7 rows with break time per day",
+      "Step 5: Verify bars use color coding (green for good, warning for low/high)"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Month view displays weekly activity chart",
+    "steps": [
+      "Step 1: Navigate to /analytics and click Month tab",
+      "Step 2: Verify month label shows 'MMMM YYYY' format",
+      "Step 3: Verify date range shows full month dates and total active time",
+      "Step 4: Verify 4-5 weekly bars render based on weeks in month",
+      "Step 5: Verify bars show average hours/day for each week"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Month view shows 8 comprehensive stat cards with monthly comparisons",
+    "steps": [
+      "Step 1: Navigate to /analytics Month view",
+      "Step 2: Verify Total Active Time card with goal progress (160h goal for month)",
+      "Step 3: Verify Avg Daily Hours with comparison to previous month",
+      "Step 4: Verify all 8 monthly stats display correctly",
+      "Step 5": "Verify month-over-month comparisons show in change indicators"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Month view displays weekly hours and weekly breaks breakdown",
+    "steps": [
+      "Step 1: Navigate to /analytics Month view",
+      "Step 2: Scroll to bottom section",
+      "Step 3: Verify Weekly Hours shows 4-5 rows (W1-W5) with total hours per week",
+      "Step 4: Verify Weekly Breaks shows break time per week",
+      "Step 5: Verify visual consistency with week view daily breakdown"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Day navigation works correctly (prev/next/date picker/today)",
+    "steps": [
+      "Step 1: Navigate to /analytics Day view",
+      "Step 2: Click previous day button (‹) and verify date changes",
+      "Step 3: Click next day button (›) and verify date changes",
+      "Step 4": "Verify next button is disabled when viewing today",
+      "Step 5: Click date picker, select a date, verify view updates",
+      "Step 6: Click 'Today' button and verify it jumps to current date"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Week navigation works correctly (prev/next/this week)",
+    "steps": [
+      "Step 1: Navigate to /analytics Week view",
+      "Step 2: Click previous week button and verify week changes",
+      "Step 3: Click next week button and verify week changes",
+      "Step 4: Verify date range updates correctly for each week",
+      "Step 5: Click 'This Week' button and verify it jumps to current week"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Month navigation works correctly (prev/next/this month)",
+    "steps": [
+      "Step 1: Navigate to /analytics Month view",
+      "Step 2: Click previous month button and verify month changes",
+      "Step 3: Click next month button and verify month changes",
+      "Step 4: Verify month transitions correctly across year boundaries (Dec->Jan)",
+      "Step 5: Click 'This Month' button and verify it jumps to current month"
+    ],
+    "passes": false
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Backend API /api/analytics/summary/day returns complete data structure",
+    "steps": [
+      "Step 1: Make GET request to /api/analytics/summary/day/2026-01-06",
+      "Step 2: Verify response contains label, date, has_data fields",
+      "Step 3: Verify stats object contains active_seconds, break_seconds, start_time, end_time, context_switches, longest_focus_seconds",
+      "Step 4: Verify hourly_activity array has 24 elements with minute values",
+      "Step 5: Verify peak_hours, tags, app_distribution, top_windows arrays are present"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Backend API /api/analytics/summary/week returns complete data structure",
+    "steps": [
+      "Step 1: Make GET request to /api/analytics/summary/week/2026/1",
+      "Step 2: Verify response contains label, date_range, total_active_seconds",
+      "Step 3": "Verify stats object has weekly statistics including avg_daily, comparisons",
+      "Step 4: Verify daily_activity array has 7 elements",
+      "Step 5: Verify daily_breakdown contains hours and breaks for each day"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Backend API /api/analytics/summary/month returns complete data structure",
+    "steps": [
+      "Step 1: Make GET request to /api/analytics/summary/month/2025/12",
+      "Step 2: Verify response contains label, date_range, total_active_seconds",
+      "Step 3: Verify stats object has monthly statistics",
+      "Step 4": "Verify weekly_activity array corresponds to weeks in month",
+      "Step 5: Verify weekly_breakdown contains hours and breaks for each week"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "NEW: Analytics handles empty/no data gracefully",
+    "steps": [
+      "Step 1: Navigate to /analytics and select a future date with no data",
+      "Step 2: Verify UI shows 'No activity' or similar message",
+      "Step 3: Verify stat cards show '--' for missing values",
+      "Step 4: Verify charts render empty states (bars at 0% height)",
+      "Step 5: Verify no JavaScript errors in console"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "NEW: Analytics page matches mockup color scheme and styling",
+    "steps": [
+      "Step 1: Navigate to /analytics",
+      "Step 2: Take screenshot and compare to mockup_analytics.html",
+      "Step 3": "Verify dark theme colors match (--bg: #0d1117, --surface: #161b22, --accent: #58a6ff)",
+      "Step 4: Verify typography sizes and weights match mockup",
+      "Step 5: Verify spacing and padding matches mockup design"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "NEW: Period tabs have correct styling and active states",
+    "steps": [
+      "Step 1: Navigate to /analytics",
+      "Step 2: Verify tab pills are styled with background: var(--surface)",
+      "Step 3: Verify active tab has blue background (var(--accent))",
+      "Step 4: Verify hover state changes background color",
+      "Step 5: Click each tab and verify active styling switches correctly"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "NEW: Summary panel has correct card styling with borders and shadows",
+    "steps": [
+      "Step 1: Navigate to /analytics",
+      "Step 2: Verify summary panel has background: var(--surface)",
+      "Step 3: Verify border: 1px solid var(--border) with border-radius: 12px",
+      "Step 4": "Verify padding: 24px matches mockup spacing",
+      "Step 5: Take screenshot to verify visual consistency"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "NEW: Stat cards have primary/secondary variants with correct styling",
+    "steps": [
+      "Step 1: Navigate to /analytics Day view",
+      "Step 2: Verify primary stat card (Active Time) has gradient background",
+      "Step 3": "Verify secondary stat cards have solid --bg background",
+      "Step 4: Verify stat-value font-size: 24px, font-weight: 600",
+      "Step 5: Verify stat-label color: var(--text-secondary), font-size: 12px"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "NEW: Goal progress bars render correctly with inline layout",
+    "steps": [
+      "Step 1: Navigate to /analytics Day view",
+      "Step 2: Verify goal progress bar in Active Time card",
+      "Step 3: Verify bar height: 5px with border-radius: 3px",
+      "Step 4": "Verify fill color: var(--success) green",
+      "Step 5: Verify percentage text displays next to bar"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "NEW: Activity chart bars have correct styling and hover effects",
+    "steps": [
+      "Step 1: Navigate to /analytics",
+      "Step 2: Hover over hourly activity bars",
+      "Step 3: Verify bars have border-radius: 3px 3px 0 0 (rounded top)",
+      "Step 4: Verify opacity classes: low (0.3), med (0.6), high (0.85), peak (1.0)",
+      "Step 5": "Verify hover increases opacity and shows cursor: pointer"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "NEW: Donut charts render with correct SVG styling",
+    "steps": [
+      "Step 1: Navigate to /analytics Day view",
+      "Step 2: Verify donut chart renders as SVG with stroke-dasharray segments",
+      "Step 3": "Verify center text shows total time with correct typography",
+      "Step 4: Verify legend items have color swatches (12x12px, border-radius: 2px)",
+      "Step 5: Verify color consistency between segments and legend"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "NEW: Window list items have correct styling with badges",
+    "steps": [
+      "Step 1: Navigate to /analytics Day view Top Windows section",
+      "Step 2: Verify app badges have background: var(--accent-soft), color: var(--accent)",
+      "Step 3: Verify window titles use text-overflow: ellipsis for long names",
+      "Step 4": "Verify time values are right-aligned with color: var(--text-secondary)",
+      "Step 5: Verify border-bottom: 1px solid var(--border) between items"
+    ],
+    "passes": false
+  },
+  {
+    "category": "style",
+    "description": "NEW: Responsive layout works on different screen sizes",
+    "steps": [
+      "Step 1: Resize browser window to 1200px width (desktop)",
+      "Step 2: Verify two-column layout displays side-by-side",
+      "Step 3: Resize to 800px width (tablet)",
+      "Step 4: Verify two-col sections stack vertically (grid-template-columns: 1fr)",
+      "Step 5: Verify all content remains readable and properly spaced"
+    ],
+    "passes": false
+  }
+]

@@ -1,0 +1,200 @@
+{
+    "active_time_seconds": 229914.06502057443,
+    "app_distribution": [
+        {
+            "app": "Tilix",
+            "color": "#58a6ff",
+            "pct": 46,
+            "seconds": 105897.36476916501
+        },
+        {
+            "app": "Google-chrome",
+            "color": "#3fb950",
+            "pct": 45,
+            "seconds": 104126.72322877655
+        },
+        {
+            "app": "Code",
+            "color": "#f0883e",
+            "pct": 2,
+            "seconds": 5193.547047999999
+        },
+        {
+            "app": "Slack",
+            "color": "#a371f7",
+            "pct": 1,
+            "seconds": 3985.2466212450945
+        },
+        {
+            "app": "sdkmanager",
+            "color": "#ff7b72",
+            "pct": 1,
+            "seconds": 3835.652846
+        },
+        {
+            "app": "Other",
+            "color": "#79c0ff",
+            "pct": 0,
+            "seconds": 1919.1263289999997
+        },
+        {
+            "app": "Gtkterm",
+            "color": "#ffa657",
+            "pct": 0,
+            "seconds": 1254.748989
+        },
+        {
+            "app": "Other",
+            "color": "#8b949e",
+            "pct": 1,
+            "seconds": 3701.6551893877636
+        }
+    ],
+    "daily_activity": [
+        45873.49358449696,
+        44502.37102462686,
+        49210.90821346391,
+        27101.003245189106,
+        28241.26052991394,
+        5318.237597742058,
+        29666.790825141587
+    ],
+    "daily_breakdown": {
+        "breaks": [
+            0,
+            0,
+            0,
+            212.0,
+            69.0,
+            2935.0,
+            0
+        ],
+        "hours": [
+            45873.49358449696,
+            44502.37102462686,
+            49210.90821346391,
+            27101.003245189106,
+            28241.26052991394,
+            5318.237597742058,
+            29666.790825141587
+        ]
+    },
+    "date_range": "Dec 29, 2025 - Jan 4, 2026",
+    "has_data": true,
+    "label": "Week 1, 2026",
+    "peak_hours_avg": [
+        26,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        6,
+        17,
+        34,
+        81,
+        92,
+        100,
+        81,
+        71,
+        79,
+        67,
+        34,
+        19,
+        5,
+        1,
+        0,
+        28,
+        43
+    ],
+    "stats": {
+        "active_days": 7,
+        "active_seconds": 229914.06502057443,
+        "avg_context_switches": 427,
+        "avg_daily_seconds": 32844,
+        "break_seconds": 3216.0,
+        "goal_pct": 159,
+        "goal_seconds": 144000,
+        "longest_focus_seconds": 4203.7563,
+        "typical_end": "12:00 AM",
+        "typical_start": "12:03 AM"
+    },
+    "tags": [
+        {
+            "count": 46,
+            "name": "activity-tracker"
+        },
+        {
+            "count": 34,
+            "name": "debugging"
+        },
+        {
+            "count": 17,
+            "name": "coding"
+        },
+        {
+            "count": 17,
+            "name": "terminal-work"
+        },
+        {
+            "count": 14,
+            "name": "terminal"
+        },
+        {
+            "count": 13,
+            "name": "claude"
+        },
+        {
+            "count": 13,
+            "name": "claude-code"
+        },
+        {
+            "count": 10,
+            "name": "docker"
+        },
+        {
+            "count": 9,
+            "name": "focus-tracking"
+        },
+        {
+            "count": 8,
+            "name": "ai-coding-assistant"
+        }
+    ],
+    "today_index": null,
+    "top_windows": [
+        {
+            "app": "Tilix",
+            "seconds": 100414.50702912931,
+            "title": "Tilix: harshad@kraken: ~"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 19067.727533,
+            "title": "Reports - Activity Tracker - Google Chrome"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 8533.648718789733,
+            "title": "Activity Timeline - Activity Tracker - Google Chrome"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 5094.174379,
+            "title": "Summary Details - Activity Tracker - Google Chrome"
+        },
+        {
+            "app": "Google-chrome",
+            "seconds": 4681.94193867654,
+            "title": "Timeline - Google Chrome"
+        },
+        {
+            "app": "Tilix",
+            "seconds": 4639.25544903571,
+            "title": "Tilix: tmux"
+        }
+    ],
+    "week": 1,
+    "year": 2026
+}
